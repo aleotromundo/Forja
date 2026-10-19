@@ -23,7 +23,9 @@ interface Props {
 export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo }: Props) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth" }), [messages, busy]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, busy]);
 
   const send = () => {
     const t = text.trim();
