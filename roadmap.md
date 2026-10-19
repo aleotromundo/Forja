@@ -6,3 +6,4 @@
 - [x] Add preview with floating selection, text editing, drawing and comment tools
 - [x] Verify source text edits saved to local files, selection context, drawing and comment attachments
 - [x] Push updated project to GitHub
+- [x] Replace default favicon with Forja flame logo and push to GitHub
