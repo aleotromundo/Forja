@@ -3,21 +3,32 @@ export type ChatMode = "plan" | "edit";
 export interface ForjaAgent {
   id: string;
   name: string;
-  description: string;
   focus: string;
+  /** Words in the request that make this specialist relevant. */
+  triggers: RegExp;
 }
 
-export const AGENTS: ForjaAgent[] = [
-  { id: "core", name: "Forja", description: "Desarrollo general, de punta a punta", focus: "Sos un desarrollador full-stack equilibrado: lógica, interfaz y datos." },
-  { id: "architect", name: "Arquitecto", description: "Estructura, decisiones y planes por fases", focus: "Sos un arquitecto de software: priorizás estructura clara, decisiones justificadas y pasos ordenados." },
-  { id: "ui", name: "Diseño UI", description: "Estilos, maquetación y accesibilidad", focus: "Sos especialista en interfaces: diseño visual cuidado, CSS/Tailwind, accesibilidad y adaptación a pantallas." },
-  { id: "refactor", name: "Refactor", description: "Limpieza, rendimiento y deuda técnica", focus: "Sos especialista en refactorización: eliminás duplicación, simplificás y mejorás el rendimiento sin cambiar el comportamiento." },
-  { id: "qa", name: "QA y tests", description: "Errores, casos borde, seguridad y pruebas", focus: "Sos auditor de calidad: buscás errores, casos borde y fallas de seguridad, y escribís pruebas." },
-  { id: "docs", name: "Documentación", description: "README, comentarios y guías", focus: "Sos redactor técnico: documentás con claridad (README, comentarios, guías de uso)." },
+export const LEAD_ROLE =
+  "ROL: sos el líder del equipo Forja. Recibís los aportes de especialistas que trabajaron en paralelo; combinalos, resolvé contradicciones y entregá una única respuesta final.";
+
+export const SPECIALISTS: ForjaAgent[] = [
+  { id: "architect", name: "Arquitecto", focus: "estructura del proyecto, archivos a tocar, orden de pasos y decisiones técnicas", triggers: /./ },
+  { id: "ui", name: "Diseño UI", focus: "interfaz, estilos, CSS/Tailwind, maquetación, accesibilidad y adaptación a pantallas", triggers: /dise|estilo|color|css|tailwind|bot[oó]n|p[aá]gina|pantalla|layout|ui|visual|fuente|men[uú]|responsive|animaci/i },
+  { id: "logic", name: "Lógica y datos", focus: "lógica de negocio, estado, APIs, datos, servidor y rendimiento", triggers: /api|dato|estado|l[oó]gica|funci[oó]n|servidor|backend|fetch|base|guardar|login|formulario|calcul|rendimiento|lento/i },
+  { id: "qa", name: "QA y seguridad", focus: "errores, casos borde, validaciones, seguridad y pruebas", triggers: /error|bug|falla|roto|no anda|test|prueba|segur|valid/i },
+  { id: "docs", name: "Documentación", focus: "README, comentarios y guías de uso", triggers: /doc|readme|coment|gu[ií]a|explic/i },
 ];
 
-export function getAgent(id: string | undefined): ForjaAgent {
-  return AGENTS.find((a) => a.id === id) ?? AGENTS[0]!;
+/** Architect always participates; others join when relevant. Up to 3 specialists in parallel. */
+export function pickTeam(request: string, max = 3): ForjaAgent[] {
+  const team = SPECIALISTS.filter((a) => a.triggers.test(request)).slice(0, max);
+  if (team.length === 1) team.push(SPECIALISTS.find((a) => a.id === "qa")!);
+  return team;
+}
+
+export function specialistPrompt(agent: ForjaAgent, mode: ChatMode): string {
+  return `Sos el especialista "${agent.name}" del equipo Forja, un editor tipo VS Code. Tu foco: ${agent.focus}.
+Analizá el pedido del usuario y el proyecto SOLO desde tu especialidad. Respondé en texto plano, breve (máximo 15 líneas): hallazgos, riesgos y recomendaciones concretas con rutas de archivo. No escribas archivos completos ni JSON; el líder del equipo integra tu aporte${mode === "plan" ? " en un plan" : " y aplica los cambios"}.`;
 }
 
 export function modeInstructions(mode: ChatMode): string {

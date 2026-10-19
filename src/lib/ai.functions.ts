@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 import { buildSlots, extractJson, rotateSlots } from "./ai-providers";
-import { enforceMode, getAgent, modeInstructions } from "./agents";
+import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
 
 const InputSchema = z.object({
   messages: z
@@ -13,7 +13,6 @@ const InputSchema = z.object({
   tree: z.array(z.string()).max(3000),
   activePath: z.string().nullable(),
   mode: z.enum(["plan", "edit"]).default("edit"),
-  agentId: z.string().max(40).optional(),
 });
 
 export interface AiEdit {
@@ -26,6 +25,7 @@ export interface AiResult {
   edits: AiEdit[];
   provider: string;
   model: string;
+  team: string[];
 }
 
 const SYSTEM = `Sos Forja, un asistente de programación integrado en un editor tipo VS Code.
@@ -57,75 +57,75 @@ export const askForja = createServerFn({ method: "POST" })
       (data.activePath ? `ARCHIVO ACTIVO: ${data.activePath}\n\n` : "") +
       data.files.map((f) => `===== ${f.path} =====\n${f.content}`).join("\n\n");
 
-    const agent = getAgent(data.agentId);
-    const system = `${SYSTEM}\n\nROL: ${agent.focus}\n${modeInstructions(data.mode)}`;
-    const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
-      { role: "system", content: system },
-      { role: "system", content: context },
-      ...data.messages,
-    ];
-
-    const errors: string[] = [];
-    for (const slot of slots) {
-      try {
-        let text = "";
-        if (slot.provider === "lovable") {
-          const r = await generateResponse({
-            model: "openai/gpt-6-astra",
-            instructions: `${system}\n\n${context}`,
-            input: data.messages
-              .map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`)
-              .join("\n\n"),
-          });
-          for (const item of r.output ?? []) {
-            if (item.type === "message") {
-              for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+    type Msg = { role: "system" | "user" | "assistant"; content: string };
+    const call = async (system: string, convo: Msg[], order: typeof slots, json: boolean) => {
+      const errors: string[] = [];
+      for (const slot of order) {
+        try {
+          let text = "";
+          if (slot.provider === "lovable") {
+            const r = await generateResponse({
+              model: "openai/gpt-6-astra",
+              instructions: `${system}\n\n${context}`,
+              input: convo.map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`).join("\n\n"),
+            });
+            for (const item of r.output ?? []) {
+              if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
             }
+          } else {
+            const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: `Bearer ${slot.key}` };
+            if (slot.provider === "openrouter") { headers["HTTP-Referer"] = "https://forja.app"; headers["X-Title"] = "Forja"; }
+            const res = await fetch(slot.url, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ model: slot.model, messages: [{ role: "system", content: system }, { role: "system", content: context }, ...convo], temperature: json ? 0.2 : 0.4 }),
+            });
+            if (!res.ok) {
+              const body = await res.text();
+              errors.push(`${slot.provider} [${res.status}]: ${body.slice(0, 200)}`);
+              console.error(`AI provider failed ${slot.provider} [${res.status}]: ${body.slice(0, 500)}`);
+              continue;
+            }
+            const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+            text = j.choices?.[0]?.message?.content ?? "";
           }
-        } else {
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${slot.key}`,
-        };
-        if (slot.provider === "openrouter") {
-          headers["HTTP-Referer"] = "https://forja.app";
-          headers["X-Title"] = "Forja";
+          if (text) return { text, provider: slot.provider, model: slot.model };
+        } catch (err) {
+          errors.push(`${slot.provider}: ${(err as Error).message}`);
         }
-        const res = await fetch(slot.url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ model: slot.model, messages, temperature: 0.2 }),
-        });
-        if (!res.ok) {
-          const body = await res.text();
-          errors.push(`${slot.provider} [${res.status}]: ${body.slice(0, 200)}`);
-          console.error(`AI provider failed ${slot.provider} [${res.status}]: ${body.slice(0, 500)}`);
-          continue;
-        }
-        const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-        text = json.choices?.[0]?.message?.content ?? "";
-        }
-        const parsed = extractJson(text) as { reply?: unknown; edits?: unknown } | null;
-        if (!parsed) {
-          return { reply: text || "(sin respuesta)", edits: [], provider: slot.provider, model: slot.model };
-        }
-        const edits = Array.isArray(parsed.edits)
-          ? (parsed.edits as AiEdit[]).filter(
-              (e) =>
-                e &&
-                typeof e.path === "string" &&
-                (e.action === "delete" || typeof e.content === "string"),
-            )
-          : [];
-        return {
-          reply: typeof parsed.reply === "string" ? parsed.reply : "Listo.",
-          edits: enforceMode(data.mode, edits.map((e) => ({ ...e, action: e.action === "delete" ? "delete" : "write" }))),
-          provider: slot.provider,
-          model: slot.model,
-        };
-      } catch (err) {
-        errors.push(`${slot.provider}: ${(err as Error).message}`);
       }
-    }
-    throw new Error(`Todos los proveedores fallaron:\n${errors.join("\n")}`);
+      throw new Error(`Todos los proveedores fallaron:\n${errors.join("\n")}`);
+    };
+
+    // 1) Specialists work in parallel, each starting on a different key/provider.
+    const lastUser = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const team = pickTeam(lastUser);
+    const notes = await Promise.all(
+      team.map((agent, i) =>
+        call(specialistPrompt(agent, data.mode), data.messages.slice(-6), rotateSlots(slots, i + 1), false)
+          .then((r) => ({ agent, text: r.text.slice(0, 4000) }))
+          .catch(() => null),
+      ),
+    );
+    const done = notes.filter((n): n is NonNullable<typeof n> => n !== null);
+    const teamNotes = done.length
+      ? `\n\nAPORTES DEL EQUIPO (integralos con criterio en tu respuesta y tus edits):\n` +
+        done.map((n) => `--- ${n.agent.name} ---\n${n.text}`).join("\n\n")
+      : "";
+
+    // 2) The lead integrates everything and returns the JSON with edits.
+    const lead = await call(`${SYSTEM}\n\n${LEAD_ROLE}\n${modeInstructions(data.mode)}${teamNotes}`, data.messages, slots, true);
+    const teamNames = done.map((n) => n.agent.name);
+    const parsed = extractJson(lead.text) as { reply?: unknown; edits?: unknown } | null;
+    if (!parsed) return { reply: lead.text, edits: [], provider: lead.provider, model: lead.model, team: teamNames };
+    const edits = Array.isArray(parsed.edits)
+      ? (parsed.edits as AiEdit[]).filter((e) => e && typeof e.path === "string" && (e.action === "delete" || typeof e.content === "string"))
+      : [];
+    return {
+      reply: typeof parsed.reply === "string" ? parsed.reply : "Listo.",
+      edits: enforceMode(data.mode, edits.map((e) => ({ ...e, action: e.action === "delete" ? "delete" : "write" }))),
+      provider: lead.provider,
+      model: lead.model,
+      team: teamNames,
+    };
   });

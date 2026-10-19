@@ -14,3 +14,4 @@
 - [x] Verify source text edits saved to local files, selection context, drawing and comment attachments
 - [x] Push updated project to GitHub
 - [x] Replace default favicon with Forja flame logo and push to GitHub
+- [x] Equipo de agentes trabajando en conjunto (sin selector)

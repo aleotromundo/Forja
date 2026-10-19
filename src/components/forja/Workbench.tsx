@@ -211,7 +211,6 @@ export function Workbench() {
           tree: files.slice(0, 3000),
           activePath: active,
           mode: extras.mode ?? "edit",
-          agentId: extras.agentId,
         },
       });
       setLastProvider(`${res.provider} · ${res.model}`);
@@ -275,7 +274,7 @@ export function Workbench() {
 
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: res.reply, edits: res.edits.map((e) => ({ path: e.path, action: e.action })), provider: res.provider },
+        { role: "assistant", content: res.reply, edits: res.edits.map((e) => ({ path: e.path, action: e.action })), provider: res.provider, team: res.team },
       ]);
     } catch (err) {
       setMessages((m) => [...m, { role: "assistant", content: (err as Error).message, error: true }]);

@@ -7,13 +7,14 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { isTextFile } from "@/lib/fs";
 import type { ChatAttachment, ChatExtras } from "@/lib/chat-context";
 import { useDictation } from "./useDictation";
-import { AGENTS, getAgent, type ChatMode } from "@/lib/agents";
+import type { ChatMode } from "@/lib/agents";
 
 export interface ChatMsg {
   role: "user" | "assistant";
   content: string;
   edits?: { path: string; action: "write" | "delete" }[];
   provider?: string;
+  team?: string[];
   error?: boolean;
   undone?: boolean;
 }
@@ -40,8 +41,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
   const [search, setSearch] = useState("");
   const [reading, setReading] = useState(false);
   const [mode, setMode] = useState<ChatMode>("plan");
-  const [agentId, setAgentId] = useState("core");
-  const agent = getAgent(agentId);
+
   const dictation = useDictation((words) => setText((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}${words}`));
   useEffect(() => { setAttachments([]); setProjectPaths([]); }, [projectName]);
   const attach = async (files: FileList | null) => {
@@ -76,7 +76,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
     const t = text.trim();
     if (!t || busy || disabled || reading) return;
     dictation.stop();
-    const sent = await onSend(t, { attachments, projectPaths, mode, agentId });
+    const sent = await onSend(t, { attachments, projectPaths, mode });
     if (sent) { setText(""); setAttachments([]); setProjectPaths([]); }
   };
 
@@ -94,12 +94,6 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
           ))}
         </div>
       </div>
-      <div className="flex items-center gap-2 border-b px-3 pb-2 text-xs">
-        <span className="text-muted-foreground">Agente</span>
-        <select aria-label="Agente" value={agentId} onChange={(e) => setAgentId(e.target.value)} className="h-7 min-w-0 flex-1 rounded border bg-background px-1 text-xs outline-none focus:border-ember">
-          {AGENTS.map((a) => <option key={a.id} value={a.id}>{a.name} — {a.description}</option>)}
-        </select>
-      </div>
       <div className="flex-1 space-y-4 overflow-auto px-3 py-2 text-[13px]">
         {messages.length === 0 && (
           <div className="mt-8 text-center text-muted-foreground">
@@ -112,6 +106,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
             <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               {m.role === "user" ? "Vos" : `Forja${m.provider ? ` · ${m.provider}` : ""}`}
             </div>
+            {m.team && m.team.length > 0 && <div className="mb-1 text-[10px] text-muted-foreground">Equipo: {m.team.join(" · ")}</div>}
             <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
             {m.edits && m.edits.length > 0 && (
               <div className="mt-2 space-y-1 border-t pt-2">
@@ -138,7 +133,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
         ))}
         {busy && (
           <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-ember animate-forge" /> {mode === "plan" ? "Pensando…" : "Forjando cambios…"}
+            <span className="h-2 w-2 rounded-full bg-ember animate-forge" /> {mode === "plan" ? "El equipo está pensando…" : "El equipo está forjando cambios…"}
           </div>
         )}
         <div ref={end} />
@@ -166,7 +161,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
             }}
             disabled={disabled || busy}
             rows={3}
-            placeholder={disabled ? "Abrí una carpeta primero" : mode === "plan" ? `Planeá con ${agent.name}: contale tu idea (no toca archivos)` : `${agent.name} puede modificar archivos: pedí cambios o "aplicá lo planeado"`}
+            placeholder={disabled ? "Abrí una carpeta primero" : mode === "plan" ? "Planeá con el equipo: contale tu idea (no toca archivos)" : 'El equipo puede modificar archivos: pedí cambios o "aplicá lo planeado"'}
             className="w-full resize-none bg-transparent px-3 py-2 text-[13px] outline-none placeholder:text-muted-foreground"
           />
           <div className="flex items-center gap-1 px-2 pb-2">

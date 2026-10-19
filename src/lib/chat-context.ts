@@ -1,5 +1,5 @@
 export interface ChatAttachment { path: string; content: string; }
-export interface ChatExtras { attachments: ChatAttachment[]; projectPaths: string[]; mode?: "plan" | "edit"; agentId?: string; }
+export interface ChatExtras { attachments: ChatAttachment[]; projectPaths: string[]; mode?: "plan" | "edit"; }
 
 export async function collectChatContext(
   explicit: ChatExtras,
