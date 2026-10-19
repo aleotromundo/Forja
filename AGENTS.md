@@ -16,3 +16,4 @@
 - Preview HTML is parsed with source offsets and rendered in an opaque-origin sandbox with only the Forja inspection bridge; this keeps local text edits precise and project scripts isolated from IDE permissions.
 - Preview annotations remain session-scoped and can be attached to the existing chat; external previews support overlays but never claim cross-origin DOM inspection.
 - Use one folder-session EditHistory for code, preview text, annotation and AI transactions; keep code and preview mounted across view switches so chronological undo cannot lose state. Clipboard commands remain native in text fields and Monaco; the sandbox bridge handles selected local preview text only.
+- Chat dictation uses the browser speech recognition service with explicit user activation; text attachments stay in memory until sent through askForja, and explicit project context takes priority over automatic context.

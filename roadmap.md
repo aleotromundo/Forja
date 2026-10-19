@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Add chat dictation, file attachments and project context selection
+- [x] Verify chat controls and real AI context delivery; push to GitHub (dictation events tested; physical microphone requires user device)
+
 - [x] Add full-session editing history and Ctrl+Z, copy, cut and paste
 - [x] Verify editing, preview annotations and clipboard shortcuts; push to GitHub
 - [x] Add a visible Save button and recommend useful export options

@@ -30,6 +30,7 @@ import { Explorer } from "./Explorer";
 import { PreviewPane } from "./PreviewPane";
 import { Button } from "@/components/ui/button";
 import { EditHistory, type HistoryEntry } from "@/lib/edit-history";
+import { collectChatContext, type ChatExtras } from "@/lib/chat-context";
 
 type Snapshot = { path: string; before: string | null }[];
 
@@ -184,11 +185,10 @@ export function Workbench() {
     await refresh();
   };
 
-  const sendChat = async (text: string) => {
-    if (!root) return;
+  const sendChat = async (text: string, extras: ChatExtras): Promise<boolean> => {
+    if (!root) return false;
     const input = previewContext ? `${text}\n\n[Contexto seleccionado en vista previa]\n${previewContext}` : text;
     const history: ChatMsg[] = [...messages, { role: "user", content: input }];
-    setMessages(history);
     setBusy(true);
     try {
       // Context: active file, open tabs, and any file path mentioned in the message.
@@ -199,15 +199,10 @@ export function Workbench() {
         const name = f.split("/").pop();
         if (input.includes(f) || (name && input.includes(name))) wanted.add(f);
       });
-      const ctx: { path: string; content: string }[] = [];
-      let budget = 120_000;
-      for (const p of [...wanted].slice(0, 30)) {
-        const tab = tabs.find((t) => t.path === p);
-        const content = tab ? tab.content : await readFile(root, p).catch(() => null);
-        if (content == null || content.length > budget) continue;
-        budget -= content.length;
-        ctx.push({ path: p, content });
-      }
+      const ctx = await collectChatContext(extras, [...wanted], async (path) => {
+        return tabsRef.current.find((tab) => tab.path === path)?.content ?? await readFile(root, path).catch(() => null);
+      });
+      setMessages(history);
 
       const res = await ask({
         data: {
@@ -282,9 +277,11 @@ export function Workbench() {
       ]);
     } catch (err) {
       setMessages((m) => [...m, { role: "assistant", content: (err as Error).message, error: true }]);
+      return false;
     } finally {
       setBusy(false);
     }
+    return true;
   };
 
   useEffect(() => {
@@ -427,6 +424,7 @@ export function Workbench() {
                 busy={busy}
                 disabled={!root}
                 onSend={sendChat}
+                projectName={root?.name} projectFiles={files}
                 onOpenFile={openFile}
                 onUndo={(index) => void travel(false, index)}
                 previewContext={previewContext}
