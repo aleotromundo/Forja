@@ -1,28 +1,29 @@
-# El Encargado — sitio completo para GitHub + Vercel
+# Welcome to your Lovable project
 
-Este proyecto une el front-end público recuperado con un backend FastAPI compatible. El bundle está configurado para consultar `/api` en el mismo dominio, por lo que no depende del preview original.
+This project was built with [Lovable](https://lovable.dev).
 
-## Publicar en GitHub y Vercel
+## Build with Lovable
 
-1. Creá un repositorio nuevo en GitHub.
-2. Subí todo el contenido de esta carpeta a la raíz del repositorio.
-3. En Vercel elegí **Add New Project** e importá ese repositorio.
-4. Dejá el Root Directory en la raíz y no agregues build command.
-5. Hacé deploy.
+Open your project in the [Lovable editor](https://lovable.dev) and keep building.
 
-Vercel debería exponer `/`, `/api/series`, `/api/series/season/1`, `/api/series/episode/1/1` y `/health`.
+- **Ship faster**: describe what you want to build and Lovable handles the code.
+- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
+- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
 
-## Personalizar contenido
+## Development
 
-Editá `catalog.json` con tus propios datos, imágenes y reproductores autorizados. El backend no descarga ni almacena videos.
+Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
-## Prueba local
-
-```bash
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+```sh
+git clone <this-repository-url>
+cd <repository-name>
+npm i
+npm run dev
 ```
 
-## Nota
+## Built with
 
-Las imágenes y reproductores externos pueden estar sujetos a derechos de autor y condiciones de uso. Reemplazá las URLs de ejemplo por recursos que tengas autorización para utilizar.
+- TanStack Start
+- TypeScript
+- React
+- Tailwind CSS
