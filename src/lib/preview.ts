@@ -66,6 +66,19 @@ export function bridgeScript(token: string, color: string) {
       selected=el; el.style.outline='2px solid '+color;el.style.outlineOffset='2px';
       emit({type:'selection',id:el.dataset.forjaId,text:el.innerText,tag:el.tagName.toLowerCase()});
     },true);
+    document.addEventListener('keydown',event=>{
+      if(!(event.ctrlKey||event.metaKey)||event.target.closest('input,textarea,[contenteditable=true]'))return;
+      if(['z','y'].includes(event.key.toLowerCase())){event.preventDefault();emit({type:event.shiftKey||event.key.toLowerCase()==='y'?'redo':'undo'});}
+    },true);
+    for(const action of ['copy','cut','paste'])document.addEventListener(action,event=>{
+      if(mode==='browse'||!selected||event.target.closest('input,textarea,[contenteditable=true]'))return;
+      if(action==='copy'||action==='cut'){
+        event.clipboardData?.setData('text/plain',selected.textContent||'');event.preventDefault();
+        if(action==='cut')emit({type:'clipboard',id:selected.dataset.forjaId,text:''});
+      }else{
+        event.preventDefault();emit({type:'clipboard',id:selected.dataset.forjaId,text:event.clipboardData?.getData('text/plain')||''});
+      }
+    });
     document.addEventListener('submit',event=>event.preventDefault(),true);
     emit({type:'ready'});
   })()<\/script>`;

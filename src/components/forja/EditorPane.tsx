@@ -125,6 +125,7 @@ export function EditorPane({ tabs, active, onSelect, onClose, onChange, onSave, 
             ) : (
               <Editor
                 path={tab.path}
+                keepCurrentModel
                 theme="forja"
                 beforeMount={defineTheme}
                 value={tab.content}

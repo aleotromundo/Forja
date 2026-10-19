@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] Add full-session editing history and Ctrl+Z, copy, cut and paste
+- [x] Verify editing, preview annotations and clipboard shortcuts; push to GitHub
+- [x] Add a visible Save button and recommend useful export options
+
 - [x] Diagnose: repo aleotromundo/Forja main contains Forja code (commit 70a4f2a)
 - [x] User confirmed Forja now shows correctly on Vercel (earlier welcome page was a stale/old deployment)
 - [x] Reverted experimental Vercel build-target change in vite.config.ts (not needed; deployment works as-is)

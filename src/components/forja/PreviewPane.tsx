@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Code2, ExternalLink, Globe, MessageSquare, MousePointer2, Pencil, RefreshCw, Send, Type, Undo2, X } from "lucide-react";
+import { Code2, ExternalLink, Globe, MessageSquare, MousePointer2, Pencil, RefreshCw, Send, Type, Undo2, Redo2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { readFile } from "@/lib/fs";
 import { bridgeScript, inspectHtml, replaceElementText, resolvePreviewPath, type PreviewElement } from "@/lib/preview";
 import { cn } from "@/lib/utils";
+import type { HistoryEntry } from "@/lib/edit-history";
 
 type Mode = "browse" | "select" | "text" | "draw" | "comment";
 interface Props {
@@ -14,10 +15,15 @@ interface Props {
   active: string | null;
   onChange: (path: string, content: string, original: string) => void;
   onContext: (context: string) => void;
+  onRecord: (entry: HistoryEntry) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 interface Mark { x: number; y: number; text: string; }
 
-export function PreviewPane({ root, files, tabs, active, onChange, onContext }: Props) {
+export function PreviewPane({ root, files, tabs, active, onChange, onContext, onRecord, onUndo, onRedo, canUndo, canRedo }: Props) {
   const htmlFiles = files.filter((file) => /\.html?$/i.test(file));
   const [path, setPath] = useState(() => active && /\.html?$/i.test(active) ? active : htmlFiles.find((file) => file === "index.html") ?? htmlFiles[0] ?? "");
   const [external, setExternal] = useState(false);
@@ -39,7 +45,16 @@ export function PreviewPane({ root, files, tabs, active, onChange, onContext }: 
   const frame = useRef<HTMLIFrameElement>(null);
   const area = useRef<HTMLDivElement>(null);
   const token = useRef(crypto.randomUUID());
+  const drawingBefore = useRef<{ marks: Mark[]; strokes: string[] } | null>(null);
+  const annotate = (nextMarks: Mark[], nextStrokes: string[], before = { marks, strokes }) => {
+    onRecord({ undo: () => { setMarks(before.marks); setStrokes(before.strokes); }, redo: () => { setMarks(nextMarks); setStrokes(nextStrokes); } });
+    setMarks(nextMarks); setStrokes(nextStrokes);
+  };
   const tabContent = tabs.find((tab) => tab.path === path)?.content;
+
+  useEffect(() => {
+    if (!path && htmlFiles.length) setPath(htmlFiles.find((file) => file === "index.html") ?? htmlFiles[0] ?? "");
+  }, [path, htmlFiles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,7 +119,7 @@ export function PreviewPane({ root, files, tabs, active, onChange, onContext }: 
   }, [root, path, tabContent, external, revision]);
 
   useEffect(() => {
-    setSelected(null); setMarks([]); setStrokes([]); setComment("");
+    setSelected(null); setComment("");
   }, [path, url, external]);
 
   useEffect(() => {
@@ -113,6 +128,14 @@ export function PreviewPane({ root, files, tabs, active, onChange, onContext }: 
     const receive = (event: MessageEvent) => {
       if (event.source !== frame.current?.contentWindow || event.data?.forjaPreview !== token.current) return;
       if (event.data.type === "ready") updateMode();
+      if (event.data.type === "undo") onUndo();
+      if (event.data.type === "redo") onRedo();
+      if (event.data.type === "clipboard") {
+        const element = elements.find((item) => item.id === event.data.id);
+        if (!element?.editable || typeof event.data.text !== "string") return;
+        try { onChange(path, replaceElementText(source, element.id, event.data.text), source); setSelected(null); }
+        catch (err) { toast.error((err as Error).message); }
+      }
       if (event.data.type === "selection") {
         const element = elements.find((item) => item.id === event.data.id);
         if (element) { setSelected(element); setText(element.text); }
@@ -120,7 +143,7 @@ export function PreviewPane({ root, files, tabs, active, onChange, onContext }: 
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [mode, elements]);
+  }, [mode, elements, path, source, onChange, onUndo, onRedo]);
 
   const context = () => `${external ? url : path}\nElemento: ${selected ? `${selected.tag} (${selected.id})\nTexto: ${selected.text}` : "vista completa"}`;
   const sendContext = () => {
@@ -152,20 +175,21 @@ export function PreviewPane({ root, files, tabs, active, onChange, onContext }: 
         <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground"><Globe className="h-9 w-9 text-ember" /><span>{loading ? "Cargando vista previa…" : root ? "No hay un archivo HTML para mostrar. Podés abrir la dirección de tu sitio en ejecución." : "Abrí una carpeta para ver tu proyecto."}</span></div>}
       {(mode === "draw" || (mode === "comment" && !selected)) && <div className="absolute inset-0 z-10 cursor-crosshair" onPointerDown={(event) => {
         const pos = point(event);
-        if (mode === "comment") { setMarks((items) => [...items, { ...pos, text: "" }]); return; }
-        event.currentTarget.setPointerCapture(event.pointerId); setDrawing(true); setStrokes((items) => [...items, `M ${pos.x} ${pos.y}`]);
-      }} onPointerMove={(event) => { if (!drawing) return; const pos = point(event); setStrokes((items) => items.map((stroke, index) => index === items.length - 1 ? `${stroke} L ${pos.x} ${pos.y}` : stroke)); }} onPointerUp={() => setDrawing(false)} onPointerCancel={() => setDrawing(false)} />}
+        if (mode === "comment") { annotate([...marks, { ...pos, text: "" }], strokes); return; }
+        drawingBefore.current = { marks, strokes }; event.currentTarget.setPointerCapture(event.pointerId); setDrawing(true); setStrokes((items) => [...items, `M ${pos.x} ${pos.y}`]);
+      }} onPointerMove={(event) => { if (!drawing) return; const pos = point(event); setStrokes((items) => items.map((stroke, index) => index === items.length - 1 ? `${stroke} L ${pos.x} ${pos.y}` : stroke)); }} onPointerUp={() => { setDrawing(false); if (drawingBefore.current) annotate(marks, strokes, drawingBefore.current); drawingBefore.current = null; }} onPointerCancel={() => { setDrawing(false); if (drawingBefore.current) { setStrokes(drawingBefore.current.strokes); drawingBefore.current = null; } }} />}
       <svg className="pointer-events-none absolute inset-0 z-10 h-full w-full text-ember" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Anotaciones dibujadas">{strokes.map((stroke, index) => <path key={index} d={stroke} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" />)}</svg>
       {marks.map((mark, index) => <span key={index} title={mark.text || "Comentario pendiente"} style={{ left: `${mark.x}%`, top: `${mark.y}%` }} className="pointer-events-none absolute z-20 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border bg-primary text-xs text-primary-foreground">{index + 1}</span>)}
       <div role="toolbar" aria-label="Herramientas de vista previa" className="absolute bottom-4 left-1/2 z-30 flex max-w-[calc(100%-16px)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-md border bg-popover p-1.5 shadow-preview">
         {([{ id: "browse", icon: Globe, label: "Navegar" }, { id: "select", icon: MousePointer2, label: "Seleccionar elemento" }, { id: "text", icon: Type, label: "Editar texto actual" }, { id: "draw", icon: Pencil, label: "Dibujar anotación" }, { id: "comment", icon: MessageSquare, label: "Añadir comentario" }] as const).map((tool) => <Button key={tool.id} variant={mode === tool.id ? "secondary" : "ghost"} size="icon" className="h-8 w-8 shrink-0" title={tool.label} aria-label={tool.label} aria-pressed={mode === tool.id} disabled={external && (tool.id === "select" || tool.id === "text")} onClick={() => { setMode(tool.id); if (tool.id === "comment") setSelected(null); }}><tool.icon /></Button>)}
         <span className="mx-1 h-5 border-l" />
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Deshacer anotación" aria-label="Deshacer anotación" disabled={!strokes.length && !marks.length} onClick={() => { if (strokes.length) setStrokes((items) => items.slice(0, -1)); else setMarks((items) => items.slice(0, -1)); }}><Undo2 /></Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Deshacer (Ctrl+Z)" aria-label="Deshacer cambio de vista previa" disabled={!canUndo} onClick={onUndo}><Undo2 /></Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Rehacer (Ctrl+Shift+Z)" aria-label="Rehacer cambio de vista previa" disabled={!canRedo} onClick={onRedo}><Redo2 /></Button>
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Enviar contexto al chat" aria-label="Enviar contexto al chat" disabled={!root || (!selected && !marks.some((mark) => mark.text) && !strokes.length)} onClick={sendContext}><Send /></Button>
       </div>
       {(selected || (mode === "comment" && marks.length > 0)) && <div className="absolute right-3 top-3 z-30 w-64 max-w-[calc(100%-24px)] rounded-md border bg-popover p-3 shadow-preview">
         <div className="mb-2 flex items-center justify-between gap-2"><span className="truncate font-mono text-xs text-ember">{selected ? `<${selected.tag}>` : "Comentario"}</span><Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Cerrar selección" onClick={() => { setSelected(null); setMode("browse"); }}><X /></Button></div>
-        {mode === "text" && selected ? <><textarea aria-label="Texto del elemento" rows={3} value={text} onChange={(event) => setText(event.target.value)} disabled={!selected.editable} className="w-full resize-none rounded border bg-background p-2 text-xs" /><Button className="mt-2 w-full" size="sm" disabled={!selected.editable || text === selected.text} onClick={() => { try { onChange(path, replaceElementText(source, selected.id, text), source); setSelected({ ...selected, text }); toast.success("Texto actualizado; guardá el archivo para escribirlo en tu carpeta"); } catch (err) { toast.error((err as Error).message); } }}>Aplicar texto</Button>{!selected.editable && <p className="mt-2 text-xs text-muted-foreground">Contiene otros elementos. Enviá la selección al chat para cambiarlo.</p>}</> : mode === "comment" ? <><textarea aria-label="Comentario de vista previa" rows={3} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Escribí tu comentario…" className="w-full resize-none rounded border bg-background p-2 text-xs" /><Button size="sm" className="mt-2 w-full" disabled={!comment.trim()} onClick={() => { const value = comment.trim(); if (selected) setMarks((items) => [...items, { x: 50, y: 25, text: `${selected.tag}: ${selected.text}\n${value}` }]); else setMarks((items) => items.map((mark, index) => index === items.length - 1 ? { ...mark, text: value } : mark)); setComment(""); setSelected(null); setMode("browse"); }}>Añadir comentario</Button></> : <><p className="mb-3 max-h-32 overflow-auto whitespace-pre-wrap text-xs">{selected?.text.slice(0, 500)}</p><Button size="sm" className="w-full" onClick={sendContext}><Send /> Usar en el chat</Button></>}
+        {mode === "text" && selected ? <><textarea aria-label="Texto del elemento" rows={3} value={text} onChange={(event) => setText(event.target.value)} disabled={!selected.editable} className="w-full resize-none rounded border bg-background p-2 text-xs" /><Button className="mt-2 w-full" size="sm" disabled={!selected.editable || text === selected.text} onClick={() => { try { onChange(path, replaceElementText(source, selected.id, text), source); setSelected({ ...selected, text }); toast.success("Texto actualizado; guardá el archivo para escribirlo en tu carpeta"); } catch (err) { toast.error((err as Error).message); } }}>Aplicar texto</Button>{!selected.editable && <p className="mt-2 text-xs text-muted-foreground">Contiene otros elementos. Enviá la selección al chat para cambiarlo.</p>}</> : mode === "comment" ? <><textarea aria-label="Comentario de vista previa" rows={3} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Escribí tu comentario…" className="w-full resize-none rounded border bg-background p-2 text-xs" /><Button size="sm" className="mt-2 w-full" disabled={!comment.trim()} onClick={() => { const value = comment.trim(); if (selected) annotate([...marks, { x: 50, y: 25, text: `${selected.tag}: ${selected.text}\n${value}` }], strokes); else annotate(marks.map((mark, index) => index === marks.length - 1 ? { ...mark, text: value } : mark), strokes); setComment(""); setSelected(null); setMode("browse"); }}>Añadir comentario</Button></> : <><p className="mb-3 max-h-32 overflow-auto whitespace-pre-wrap text-xs">{selected?.text.slice(0, 500)}</p><Button size="sm" className="w-full" onClick={sendContext}><Send /> Usar en el chat</Button></>}
       </div>}
     </div>
   </div>;
