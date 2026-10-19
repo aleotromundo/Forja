@@ -210,6 +210,8 @@ export function Workbench() {
           files: ctx,
           tree: files.slice(0, 3000),
           activePath: active,
+          mode: extras.mode ?? "edit",
+          agentId: extras.agentId,
         },
       });
       setLastProvider(`${res.provider} · ${res.model}`);

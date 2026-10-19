@@ -7,6 +7,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { isTextFile } from "@/lib/fs";
 import type { ChatAttachment, ChatExtras } from "@/lib/chat-context";
 import { useDictation } from "./useDictation";
+import { AGENTS, getAgent, type ChatMode } from "@/lib/agents";
 
 export interface ChatMsg {
   role: "user" | "assistant";
@@ -38,6 +39,9 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
   const [projectPaths, setProjectPaths] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [reading, setReading] = useState(false);
+  const [mode, setMode] = useState<ChatMode>("plan");
+  const [agentId, setAgentId] = useState("core");
+  const agent = getAgent(agentId);
   const dictation = useDictation((words) => setText((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}${words}`));
   useEffect(() => { setAttachments([]); setProjectPaths([]); }, [projectName]);
   const attach = async (files: FileList | null) => {
@@ -72,7 +76,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
     const t = text.trim();
     if (!t || busy || disabled || reading) return;
     dictation.stop();
-    const sent = await onSend(t, { attachments, projectPaths });
+    const sent = await onSend(t, { attachments, projectPaths, mode, agentId });
     if (sent) { setText(""); setAttachments([]); setProjectPaths([]); }
   };
 
@@ -80,6 +84,21 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
     <div className="flex h-full flex-col bg-panel">
       <div className="flex h-9 items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5 text-ember" /> Forja IA
+        <div role="radiogroup" aria-label="Modo del chat" className="ml-auto flex rounded-md border p-0.5 normal-case tracking-normal">
+          {(["plan", "edit"] as const).map((m) => (
+            <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
+              title={m === "plan" ? "Conversar ideas sin tocar archivos" : "La IA puede modificar archivos"}
+              className={cn("rounded px-2 py-0.5 text-[11px]", mode === m ? "bg-ember text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+              {m === "plan" ? "Planear" : "Modificar"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 border-b px-3 pb-2 text-xs">
+        <span className="text-muted-foreground">Agente</span>
+        <select aria-label="Agente" value={agentId} onChange={(e) => setAgentId(e.target.value)} className="h-7 min-w-0 flex-1 rounded border bg-background px-1 text-xs outline-none focus:border-ember">
+          {AGENTS.map((a) => <option key={a.id} value={a.id}>{a.name} — {a.description}</option>)}
+        </select>
       </div>
       <div className="flex-1 space-y-4 overflow-auto px-3 py-2 text-[13px]">
         {messages.length === 0 && (
@@ -119,7 +138,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
         ))}
         {busy && (
           <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-ember animate-forge" /> Forjando cambios…
+            <span className="h-2 w-2 rounded-full bg-ember animate-forge" /> {mode === "plan" ? "Pensando…" : "Forjando cambios…"}
           </div>
         )}
         <div ref={end} />
@@ -147,7 +166,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
             }}
             disabled={disabled || busy}
             rows={3}
-            placeholder={disabled ? "Abrí una carpeta primero" : "Ej: agregá validación al formulario en src/App.tsx"}
+            placeholder={disabled ? "Abrí una carpeta primero" : mode === "plan" ? `Planeá con ${agent.name}: contale tu idea (no toca archivos)` : `${agent.name} puede modificar archivos: pedí cambios o "aplicá lo planeado"`}
             className="w-full resize-none bg-transparent px-3 py-2 text-[13px] outline-none placeholder:text-muted-foreground"
           />
           <div className="flex items-center gap-1 px-2 pb-2">

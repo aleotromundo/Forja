@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 import { buildSlots, extractJson, rotateSlots } from "./ai-providers";
+import { enforceMode, getAgent, modeInstructions } from "./agents";
 
 const InputSchema = z.object({
   messages: z
@@ -11,6 +12,8 @@ const InputSchema = z.object({
   files: z.array(z.object({ path: z.string(), content: z.string() })).max(40),
   tree: z.array(z.string()).max(3000),
   activePath: z.string().nullable(),
+  mode: z.enum(["plan", "edit"]).default("edit"),
+  agentId: z.string().max(40).optional(),
 });
 
 export interface AiEdit {
@@ -54,8 +57,10 @@ export const askForja = createServerFn({ method: "POST" })
       (data.activePath ? `ARCHIVO ACTIVO: ${data.activePath}\n\n` : "") +
       data.files.map((f) => `===== ${f.path} =====\n${f.content}`).join("\n\n");
 
+    const agent = getAgent(data.agentId);
+    const system = `${SYSTEM}\n\nROL: ${agent.focus}\n${modeInstructions(data.mode)}`;
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: system },
       { role: "system", content: context },
       ...data.messages,
     ];
@@ -67,7 +72,7 @@ export const askForja = createServerFn({ method: "POST" })
         if (slot.provider === "lovable") {
           const r = await generateResponse({
             model: "openai/gpt-6-astra",
-            instructions: `${SYSTEM}\n\n${context}`,
+            instructions: `${system}\n\n${context}`,
             input: data.messages
               .map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`)
               .join("\n\n"),
@@ -114,7 +119,7 @@ export const askForja = createServerFn({ method: "POST" })
           : [];
         return {
           reply: typeof parsed.reply === "string" ? parsed.reply : "Listo.",
-          edits: edits.map((e) => ({ ...e, action: e.action === "delete" ? "delete" : "write" })),
+          edits: enforceMode(data.mode, edits.map((e) => ({ ...e, action: e.action === "delete" ? "delete" : "write" }))),
           provider: slot.provider,
           model: slot.model,
         };
