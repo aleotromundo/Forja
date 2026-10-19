@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, FileCode, Sparkles, Undo2 } from "lucide-react";
+import { ArrowUp, FileCode, Sparkles, Undo2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export interface ChatMsg {
@@ -18,9 +19,11 @@ interface Props {
   onSend: (text: string) => void;
   onOpenFile: (p: string) => void;
   onUndo: (index: number) => void;
+  previewContext?: string;
+  onClearContext?: () => void;
 }
 
-export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo }: Props) {
+export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo, previewContext, onClearContext }: Props) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -83,6 +86,10 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
         <div ref={end} />
       </div>
       <div className="p-3">
+        {previewContext && <div className="mb-2 flex items-start gap-2 rounded border bg-panel-deep p-2 text-xs">
+          <div className="min-w-0 flex-1"><span className="text-ember">Selección de vista previa</span><p className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-muted-foreground">{previewContext}</p></div>
+          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" aria-label="Quitar contexto de vista previa" onClick={onClearContext}><X /></Button>
+        </div>}
         <div className="rounded-md border bg-background focus-within:ember-glow">
           <textarea
             value={text}

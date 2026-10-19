@@ -38,6 +38,8 @@
   --color-tab-active: var(--tab-active);
   --color-ember: var(--ember);
   --color-ember-glow: var(--ember-glow);
+  --color-preview-paper: var(--preview-paper);
+  --shadow-preview: var(--preview-shadow);
   --color-success: var(--success);
   --color-added: var(--added);
   --color-chart-1: var(--chart-1);
@@ -80,6 +82,8 @@
   --added: oklch(0.72 0.14 150);
   --ember: oklch(0.7 0.18 48);
   --ember-glow: oklch(0.7 0.18 48 / 18%);
+  --preview-paper: oklch(0.99 0 0);
+  --preview-shadow: 0 8px 24px oklch(0.05 0 0 / 35%);
   --border: oklch(0.29 0.008 55);
   --input: oklch(0.3 0.008 55);
   --ring: oklch(0.7 0.18 48);

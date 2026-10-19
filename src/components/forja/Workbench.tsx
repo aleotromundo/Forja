@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, Files, Flame, Search, Sparkles } from "lucide-react";
+import { Code2, FolderOpen, Files, Flame, Globe, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { ChatPanel, type ChatMsg } from "./ChatPanel";
 import { EditorPane, type Tab } from "./EditorPane";
 import { Explorer } from "./Explorer";
+import { PreviewPane } from "./PreviewPane";
+import { Button } from "@/components/ui/button";
 
 type Snapshot = { path: string; before: string | null }[];
 
@@ -62,6 +64,8 @@ export function Workbench() {
   const [showExplorer, setShowExplorer] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [view, setView] = useState<"code" | "preview">("code");
+  const [previewContext, setPreviewContext] = useState("");
   const snapshots = useRef<Record<number, Snapshot>>({});
   const [leftW, dragLeft] = useDrag(260, 160, 500);
   const [rightW, dragRight] = useDrag(380, 260, 700, true);
@@ -79,6 +83,7 @@ export function Workbench() {
       setTabs([]);
       setActive(null);
       setChanged(new Set());
+      setPreviewContext("");
       setTree(await readTree(h));
     } catch (e) {
       if ((e as Error).name !== "AbortError") toast.error("No se pudo abrir la carpeta");
@@ -152,7 +157,8 @@ export function Workbench() {
 
   const sendChat = async (text: string) => {
     if (!root) return;
-    const history: ChatMsg[] = [...messages, { role: "user", content: text }];
+    const input = previewContext ? `${text}\n\n[Contexto seleccionado en vista previa]\n${previewContext}` : text;
+    const history: ChatMsg[] = [...messages, { role: "user", content: input }];
     setMessages(history);
     setBusy(true);
     try {
@@ -161,7 +167,8 @@ export function Workbench() {
       if (active) wanted.add(active);
       tabs.forEach((t) => wanted.add(t.path));
       files.forEach((f) => {
-        if (text.includes(f) || text.includes(f.split("/").pop()!)) wanted.add(f);
+        const name = f.split("/").pop();
+        if (input.includes(f) || (name && input.includes(name))) wanted.add(f);
       });
       const ctx: { path: string; content: string }[] = [];
       let budget = 120_000;
@@ -182,6 +189,7 @@ export function Workbench() {
         },
       });
       setLastProvider(`${res.provider} · ${res.model}`);
+      setPreviewContext("");
 
       // Apply edits to disk and editor.
       const snap: Snapshot = [];
@@ -346,7 +354,15 @@ export function Workbench() {
           </>
         )}
 
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-9 shrink-0 items-center justify-end gap-1 border-b bg-panel-deep px-2">
+            <Button variant={view === "code" ? "secondary" : "ghost"} size="sm" aria-pressed={view === "code"} onClick={() => setView("code")}><Code2 /> Código</Button>
+            <Button variant={view === "preview" ? "secondary" : "ghost"} size="sm" aria-pressed={view === "preview"} onClick={() => setView("preview")}><Globe /> Vista previa</Button>
+          </div>
+          <div className="min-h-0 flex-1">
+          {view === "preview" ? <PreviewPane key={root?.name ?? "empty"} root={root} files={files} tabs={tabs} active={active}
+            onChange={(path, content, original) => { setActive(path); setTabs((current) => current.some((tab) => tab.path === path) ? current.map((tab) => tab.path === path ? { ...tab, content } : tab) : [...current, { path, content, saved: original }]); }}
+            onContext={(context) => { setPreviewContext(context); setShowChat(true); }} /> :
           <EditorPane
             tabs={tabs}
             active={active}
@@ -355,7 +371,8 @@ export function Workbench() {
             onChange={(p, v) => setTabs((ts) => ts.map((t) => (t.path === p ? { ...t, content: v } : t)))}
             onSave={save}
             onToggleDiff={(p) => setTabs((ts) => ts.map((t) => (t.path === p ? { ...t, showDiff: !t.showDiff } : t)))}
-          />
+          />}
+          </div>
         </div>
 
         {showChat && (
@@ -369,6 +386,8 @@ export function Workbench() {
                 onSend={sendChat}
                 onOpenFile={openFile}
                 onUndo={undo}
+                previewContext={previewContext}
+                onClearContext={() => setPreviewContext("")}
               />
             </div>
           </>
