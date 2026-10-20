@@ -16,7 +16,7 @@ const DEFAULTS: Record<ProviderName, { url: string; model: string }> = {
   },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
   },
   openrouter: {
     url: "https://openrouter.ai/api/v1/chat/completions",
