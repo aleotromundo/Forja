@@ -38,7 +38,8 @@ Reglas:
 - Para borrar un archivo usá {"path": "...", "action": "delete"}.
 - Podés crear archivos nuevos con rutas nuevas.
 - Si solo es una pregunta, devolvé "edits": [].
-- Usá rutas relativas exactamente como aparecen en la lista.`;
+- Usá rutas relativas exactamente como aparecen en la lista.
+- Cuando expliques una parte concreta del código, citá la ruta y la línea así: src/lib/archivo.ts:42. Los números "N| " que aparecen al inicio de cada línea del contexto son solo referencias: nunca los copies dentro del "content" de un edit.`;
 
 let counter = 0;
 
@@ -55,7 +56,9 @@ export const askForja = createServerFn({ method: "POST" })
     const context =
       `ARCHIVOS DEL PROYECTO:\n${data.tree.join("\n")}\n\n` +
       (data.activePath ? `ARCHIVO ACTIVO: ${data.activePath}\n\n` : "") +
-      data.files.map((f) => `===== ${f.path} =====\n${f.content}`).join("\n\n");
+      data.files
+        .map((f) => `===== ${f.path} =====\n${f.content.split("\n").map((line, i) => `${i + 1}| ${line}`).join("\n")}`)
+        .join("\n\n");
 
     type Msg = { role: "system" | "user" | "assistant"; content: string };
     const call = async (system: string, convo: Msg[], order: typeof slots, json: boolean) => {

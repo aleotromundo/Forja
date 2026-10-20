@@ -25,7 +25,7 @@ import {
 } from "@/lib/fs";
 import { cn } from "@/lib/utils";
 import { ChatPanel, type ChatMsg } from "./ChatPanel";
-import { EditorPane, type Tab } from "./EditorPane";
+import { EditorPane, type RevealRequest, type Tab } from "./EditorPane";
 import { Explorer } from "./Explorer";
 import { PreviewPane } from "./PreviewPane";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,7 @@ export function Workbench() {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [active, setActive] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<RevealRequest | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [busy, setBusy] = useState(false);
   const [changed, setChanged] = useState<Set<string>>(new Set());
@@ -140,6 +141,16 @@ export function Workbench() {
       setActive(path);
     },
     [root, tabs],
+  );
+
+  /** Opens a file and, when a line is given, scrolls the editor to it. */
+  const openAt = useCallback(
+    (path: string, line?: number) => {
+      void openFile(path).then(() => {
+        if (line) setReveal({ path, line, nonce: Date.now() });
+      });
+    },
+    [openFile],
   );
 
   const save = useCallback(
@@ -407,6 +418,7 @@ export function Workbench() {
           <EditorPane
             tabs={tabs}
             active={active}
+            reveal={reveal}
             onSelect={setActive}
             onClose={closeTab}
             onChange={changeText}
@@ -426,7 +438,7 @@ export function Workbench() {
                 disabled={!root}
                 onSend={sendChat}
                 projectName={root?.name} projectFiles={files}
-                onOpenFile={openFile}
+                onOpenFile={openAt}
                 onUndo={(index) => void travel(false, index)}
                 previewContext={previewContext}
                 onClearContext={() => setPreviewContext("")}

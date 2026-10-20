@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, FileCode, Sparkles, Undo2, X, Mic, Square, Paperclip, FolderOpen, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,39 @@ import { isTextFile } from "@/lib/fs";
 import type { ChatAttachment, ChatExtras } from "@/lib/chat-context";
 import { useDictation } from "./useDictation";
 import type { ChatMode } from "@/lib/agents";
+
+/** Matches "ruta/archivo.ext" or "ruta/archivo.ext:linea" inside a message. */
+const CODE_REF = /([\w@./-]+\.[A-Za-z0-9]+)(?::(\d+))?/g;
+
+/** Renders assistant text, turning references to known project files into clickable links. */
+function MessageText({ text, files, onOpen }: { text: string; files: string[]; onOpen: (path: string, line?: number) => void }) {
+  const known = new Set(files);
+  const parts: ReactNode[] = [];
+  let last = 0;
+  for (const match of text.matchAll(CODE_REF)) {
+    const whole = match[0];
+    const path = match[1] ?? "";
+    const lineText = match[2];
+    if (!known.has(path)) continue;
+    const index = match.index ?? 0;
+    const line = lineText ? Number(lineText) : undefined;
+    parts.push(text.slice(last, index));
+    parts.push(
+      <button
+        key={index}
+        type="button"
+        onClick={() => onOpen(path, line)}
+        title={`Abrir ${path}${line ? `, línea ${line}` : ""}`}
+        className="rounded px-0.5 font-mono text-[12px] text-ember underline decoration-dotted underline-offset-2 hover:bg-accent"
+      >
+        {whole}
+      </button>,
+    );
+    last = index + whole.length;
+  }
+  parts.push(text.slice(last));
+  return <>{parts}</>;
+}
 
 export interface ChatMsg {
   role: "user" | "assistant";
@@ -26,7 +59,7 @@ interface Props {
   onSend: (text: string, extras: ChatExtras) => Promise<boolean>;
   projectFiles: string[];
   projectName?: string | undefined;
-  onOpenFile: (p: string) => void;
+  onOpenFile: (p: string, line?: number) => void;
   onUndo: (index: number) => void;
   previewContext?: string;
   onClearContext?: () => void;
@@ -107,7 +140,7 @@ export function ChatPanel({ messages, busy, disabled, onSend, onOpenFile, onUndo
               {m.role === "user" ? "Vos" : `Forja${m.provider ? ` · ${m.provider}` : ""}`}
             </div>
             {m.team && m.team.length > 0 && <div className="mb-1 text-[10px] text-muted-foreground">Equipo: {m.team.join(" · ")}</div>}
-            <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
+            <div className="whitespace-pre-wrap leading-relaxed">{m.role === "assistant" ? <MessageText text={m.content} files={projectFiles} onOpen={onOpenFile} /> : m.content}</div>
             {m.edits && m.edits.length > 0 && (
               <div className="mt-2 space-y-1 border-t pt-2">
                 {m.edits.map((e) => (

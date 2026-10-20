@@ -1,5 +1,5 @@
 import Editor, { DiffEditor, type Monaco } from "@monaco-editor/react";
-import { useRef } from "react";
+import { useEffect, useRef, type ComponentProps } from "react";
 import { GitCompare, X } from "lucide-react";
 import { languageOf } from "@/lib/fs";
 import { cn } from "@/lib/utils";
@@ -13,8 +13,18 @@ export interface Tab {
   showDiff?: boolean;
 }
 
+/** A request to scroll the editor to a line once `path` is the active tab. */
+export interface RevealRequest {
+  path: string;
+  line: number;
+  nonce: number;
+}
+
+type CodeEditor = Parameters<NonNullable<ComponentProps<typeof Editor>["onMount"]>>[0];
+
 interface Props {
   tabs: Tab[];
+  reveal?: RevealRequest | null;
   active: string | null;
   onSelect: (p: string) => void;
   onClose: (p: string) => void;
@@ -61,8 +71,23 @@ const OPTIONS = {
   padding: { top: 8 },
 };
 
-export function EditorPane({ tabs, active, onSelect, onClose, onChange, onSave, onToggleDiff }: Props) {
+export function EditorPane({ tabs, active, reveal, onSelect, onClose, onChange, onSave, onToggleDiff }: Props) {
   const tab = tabs.find((t) => t.path === active);
+  const editorRef = useRef<CodeEditor | null>(null);
+
+  useEffect(() => {
+    if (!reveal || reveal.path !== active) return;
+    // Wait one frame so Monaco has swapped to the new model before moving the cursor.
+    const frame = requestAnimationFrame(() => {
+      const editor = editorRef.current;
+      if (!editor || !editor.getModel()) return;
+      const line = Math.min(reveal.line, editor.getModel()!.getLineCount());
+      editor.setPosition({ lineNumber: line, column: 1 });
+      editor.revealLineInCenter(line);
+      editor.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [reveal, active]);
   const activeRef = useRef(active);
   activeRef.current = active;
   const saveRef = useRef(onSave);
@@ -133,6 +158,7 @@ export function EditorPane({ tabs, active, onSelect, onClose, onChange, onSave, 
                 options={OPTIONS}
                 onChange={(v) => onChange(tab.path, v ?? "")}
                 onMount={(editor, monaco) => {
+                  editorRef.current = editor;
                   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => activeRef.current && saveRef.current(activeRef.current));
                 }}
               />
