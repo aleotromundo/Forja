@@ -72,3 +72,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se agregó una validación Zod del tamaño total antes de ejecutar llamadas de IA.
 - Se agregaron tests para contextos seleccionados que exceden el límite.
 - Tests, TypeScript y lint pasaron.
+
+### Cambio 8 — Confirmación antes de aplicar edits
+
+- Se agregó una confirmación explícita antes de escribir o eliminar archivos por una respuesta de IA.
+- La confirmación muestra la cantidad de cambios y la ruta de cada archivo afectado.
+- Si el usuario cancela, no se toca el filesystem y la conversación registra que los cambios fueron rechazados.
+- La validación de rutas se mantiene antes de mostrar y aplicar la propuesta.
+- Tests, TypeScript, lint y build pasaron.

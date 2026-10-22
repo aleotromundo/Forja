@@ -262,6 +262,23 @@ export function Workbench() {
 
       // Apply edits to disk and editor.
       const edits = res.edits.filter((edit) => isSafeRelativePath(edit.path));
+      if (
+        edits.length > 0 &&
+        !window.confirm(
+          `La IA propone aplicar ${edits.length} cambio${edits.length === 1 ? "" : "s"}:\n\n${edits.map((edit) => `${edit.action === "delete" ? "Eliminar" : "Modificar"} ${edit.path}`).join("\n")}\n\n¿Querés aplicar estos cambios?`,
+        )
+      ) {
+        setMessages((current) => [
+          ...current,
+          {
+            role: "assistant",
+            content: "No apliqué los cambios propuestos. Podés volver a pedirlos cuando quieras.",
+            provider: res.provider,
+            team: res.team,
+          },
+        ]);
+        return true;
+      }
       const snap: Snapshot = [];
       for (const e of edits) {
         const prev =
