@@ -1,29 +1,85 @@
-# Welcome to your Lovable project
+# Forja
 
-This project was built with [Lovable](https://lovable.dev).
+Forja es un editor local tipo VS Code que combina exploración de proyectos, edición de código, preview visual y asistencia de IA en lenguaje natural.
 
-## Build with Lovable
+La idea es trabajar sobre una carpeta local sin subir el proyecto completo a un servidor: abrís la carpeta desde el navegador, elegís qué contexto compartir con la IA y decidís si querés solamente planear o aplicar cambios.
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+## Qué incluye
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- Explorador de archivos y pestañas de edición con Monaco.
+- Edición y guardado directo en la carpeta local mediante la File System Access API.
+- Chat con contexto del archivo activo, pestañas abiertas, archivos seleccionados y adjuntos de texto.
+- Dos modos de trabajo: **Planear**, que no modifica archivos, y **Modificar**, que puede aplicar cambios.
+- Historial unificado para cambios de IA, edición de código, preview y anotaciones.
+- Preview de archivos HTML locales en un iframe aislado.
+- Selección de elementos, edición de texto, comentarios y anotaciones dibujadas.
+- Rotación y fallback entre proveedores de IA configurados.
+- Equipo de especialistas para arquitectura, interfaz, lógica, QA y documentación.
 
-## Development
+## Requisitos
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+- Node.js 22 o una versión compatible con el toolchain del proyecto.
+- Un navegador basado en Chromium con soporte para `showDirectoryPicker`, como Chrome, Edge u Opera.
+- Una o más claves de proveedores de IA, salvo que se use el fallback de Lovable AI disponible en el entorno de despliegue.
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+## Desarrollo local
+
+```bash
+git clone https://github.com/aleotromundo/Forja.git
+cd Forja
+pnpm install
+pnpm run dev
 ```
 
-## Built with
+También se pueden ejecutar las comprobaciones principales:
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+```bash
+pnpm run test
+pnpm run lint
+pnpm run build
+```
+
+## Configuración de IA
+
+Forja lee las claves desde variables de entorno. Cada variable acepta claves separadas por comas para permitir rotación:
+
+```bash
+GROQ_API_KEYS=...
+GEMINI_API_KEYS=...
+OPENROUTER_API_KEYS=...
+```
+
+Las llamadas de IA pasan por `src/lib/ai.functions.ts`. Las claves permanecen del lado del servidor; el navegador envía solamente el contexto que el usuario selecciona para la conversación.
+
+## Privacidad y permisos
+
+La carpeta del usuario se abre en el navegador mediante la File System Access API. Forja lee y escribe archivos únicamente después de que el usuario elige una carpeta y concede permiso. El contenido de los archivos solo se envía a la IA cuando forma parte del contexto de una consulta.
+
+El preview local se renderiza dentro de un `iframe` con sandbox. Los scripts, formularios y algunos recursos potencialmente peligrosos se eliminan o aíslan en el modo de preview local. Las páginas externas permiten anotaciones, pero no inspección ni edición del DOM por las restricciones de origen cruzado.
+
+## Flujo recomendado
+
+1. Abrí Forja en un navegador compatible.
+2. Elegí **Abrir carpeta** y seleccioná tu proyecto.
+3. Usá **Planear** para conversar sobre el cambio y revisar una propuesta.
+4. Cambiá a **Modificar** cuando quieras aplicar el plan.
+5. Revisá el diff en el editor, guardá los archivos y usá el historial si necesitás deshacer.
+6. En **Vista previa**, seleccioná un elemento o agregá una anotación y enviá ese contexto al chat.
+
+## Estructura principal
+
+- `src/components/forja/`: workbench, explorador, editor, chat y preview.
+- `src/lib/fs.ts`: acceso a carpetas y archivos locales.
+- `src/lib/preview.ts`: inspección HTML, reemplazos de texto y bridge del preview.
+- `src/lib/ai.functions.ts`: función servidor para las consultas de IA y aplicación de edits.
+- `src/lib/ai-providers.ts`: rotación y selección de proveedores.
+- `src/lib/agents.ts`: modos de chat y especialistas del equipo.
+- `src/lib/edit-history.ts`: historial unificado de cambios.
+
+## Estado del proyecto
+
+Forja es un piloto/MVP en evolución. La base funcional está lista para probar el flujo completo, pero todavía se están mejorando la documentación, la cobertura de integración, el manejo de diffs y la robustez para proyectos grandes.
+
+## Licencia
+
+Este repositorio no declara todavía una licencia de código abierto. No asumas permisos de redistribución sin consultar al propietario del proyecto.
