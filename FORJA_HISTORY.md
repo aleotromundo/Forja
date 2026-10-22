@@ -22,6 +22,13 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Commit: `4a4e87d docs: escribir README propio de Forja`
 - Estado: subido a `origin/main`.
 
+### Cambio 2 — Bitácora y skill operativo
+
+- Se agregó este archivo (`FORJA_HISTORY.md`) para conservar la historia de cambios, verificaciones, decisiones y aprendizajes del proyecto.
+- Se creó `forja-repository/SKILL.md` con el flujo de trabajo, la arquitectura, las reglas de privacidad, las condiciones de seguridad, las pautas para IA y las convenciones de documentación.
+- El skill se inicializó con la estructura oficial y fue validado correctamente con `quick_validate.py`.
+- Durante la validación fue necesario instalar `PyYAML` en el entorno de trabajo porque no estaba disponible previamente.
+
 ### Decisión de documentación operativa
 
 - Se acordó mantener este archivo como historia cronológica de trabajo.
