@@ -44,7 +44,7 @@ Reglas:
 let counter = 0;
 
 export const askForja = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => InputSchema.parse(d))
+  .validator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data }): Promise<AiResult> => {
     const slots = rotateSlots(
       buildSlots(process.env as Record<string, string | undefined>),

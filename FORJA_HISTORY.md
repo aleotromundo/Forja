@@ -43,3 +43,9 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - `pnpm run test`: 18 tests pasaron.
 - `pnpm exec tsc --noEmit`: sin errores.
 - `pnpm run build`: completado correctamente; permanece el aviso de `inputValidator()` deprecado.
+
+### Cambio 4 — Migración de TanStack
+
+- Se reemplazó `inputValidator()` por `validator()` en `askForja`.
+- Tests, TypeScript y build pasaron.
+- Se eliminó el aviso de deprecación de TanStack del build.
