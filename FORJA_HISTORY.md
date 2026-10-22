@@ -49,3 +49,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se reemplazó `inputValidator()` por `validator()` en `askForja`.
 - Tests, TypeScript y build pasaron.
 - Se eliminó el aviso de deprecación de TanStack del build.
+
+### Cambio 5 — Seguridad de rutas de IA
+
+- Se agregó `isSafeRelativePath` para rechazar rutas absolutas, traversal con `..`, separadores Windows, drives, segmentos vacíos y bytes nulos.
+- La función servidor filtra edits inseguros antes de devolverlos.
+- El Workbench repite la validación antes de escribir o eliminar en la carpeta local.
+- Se agregaron tests para rutas válidas, absolutas, traversal y formatos inseguros.
+- Tests, TypeScript y build pasaron.

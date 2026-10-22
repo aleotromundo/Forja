@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 import { buildSlots, extractJson, rotateSlots } from "./ai-providers";
 import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
+import { isSafeRelativePath } from "./paths";
 
 const InputSchema = z.object({
   messages: z
@@ -171,6 +172,7 @@ export const askForja = createServerFn({ method: "POST" })
           (e) =>
             e &&
             typeof e.path === "string" &&
+            isSafeRelativePath(e.path) &&
             (e.action === "delete" || typeof e.content === "string"),
         )
       : [];

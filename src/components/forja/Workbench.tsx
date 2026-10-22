@@ -35,6 +35,7 @@ import {
   type FileNode,
 } from "@/lib/fs";
 import { cn } from "@/lib/utils";
+import { isSafeRelativePath } from "@/lib/paths";
 import { ChatPanel, type ChatMsg } from "./ChatPanel";
 import { EditorPane, type RevealRequest, type Tab } from "./EditorPane";
 import { Explorer } from "./Explorer";
@@ -260,8 +261,9 @@ export function Workbench() {
       setPreviewContext("");
 
       // Apply edits to disk and editor.
+      const edits = res.edits.filter((edit) => isSafeRelativePath(edit.path));
       const snap: Snapshot = [];
-      for (const e of res.edits) {
+      for (const e of edits) {
         const prev =
           tabs.find((t) => t.path === e.path)?.content ??
           (await readFile(root, e.path).catch(() => null));
@@ -275,7 +277,7 @@ export function Workbench() {
       const idx = history.length;
       if (snap.length) {
         const folder = root;
-        const after = res.edits.map((e) => ({
+        const after = edits.map((e) => ({
           path: e.path,
           before: e.action === "delete" ? null : (e.content ?? ""),
         }));
@@ -311,10 +313,8 @@ export function Workbench() {
       }
 
       setTabs((ts) => {
-        let next = ts.filter(
-          (t) => !res.edits.some((e) => e.action === "delete" && e.path === t.path),
-        );
-        for (const e of res.edits) {
+        let next = ts.filter((t) => !edits.some((e) => e.action === "delete" && e.path === t.path));
+        for (const e of edits) {
           if (e.action !== "write") continue;
           const before = snap.find((s) => s.path === e.path)?.before ?? "";
           const content = e.content ?? "";
@@ -327,17 +327,17 @@ export function Workbench() {
         }
         return next;
       });
-      const firstWrite = res.edits.find((e) => e.action === "write");
+      const firstWrite = edits.find((e) => e.action === "write");
       if (firstWrite) setActive(firstWrite.path);
-      setChanged((c) => new Set([...c, ...res.edits.map((e) => e.path)]));
-      if (res.edits.length) await refresh();
+      setChanged((c) => new Set([...c, ...edits.map((e) => e.path)]));
+      if (edits.length) await refresh();
 
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
           content: res.reply,
-          edits: res.edits.map((e) => ({ path: e.path, action: e.action })),
+          edits: edits.map((e) => ({ path: e.path, action: e.action })),
           provider: res.provider,
           team: res.team,
         },
