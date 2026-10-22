@@ -57,7 +57,8 @@ export function buildSlots(env: Env): ProviderSlot[] {
   });
   const slots: ProviderSlot[] = [];
   const max = Math.max(0, ...groups.map((g) => g.length));
-  for (let i = 0; i < max; i++) for (const g of groups) {
+  for (let i = 0; i < max; i++)
+    for (const g of groups) {
       const s = g[i];
       if (s) slots.push(s);
     }

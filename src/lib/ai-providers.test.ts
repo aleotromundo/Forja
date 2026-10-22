@@ -17,7 +17,11 @@ describe("ai provider rotation", () => {
   });
 
   it("rotates the starting provider on each request", () => {
-    const slots = buildSlots({ GROQ_API_KEYS: "g1,g2", GEMINI_API_KEY: "m1", LOVABLE_API_KEY: "l" });
+    const slots = buildSlots({
+      GROQ_API_KEYS: "g1,g2",
+      GEMINI_API_KEY: "m1",
+      LOVABLE_API_KEY: "l",
+    });
     expect(rotateSlots(slots, 1).map((s) => s.key)).toEqual(["m1", "g2", "g1", "l"]);
     expect(rotateSlots(slots, 3).map((s) => s.key)).toEqual(["g1", "m1", "g2", "l"]);
   });

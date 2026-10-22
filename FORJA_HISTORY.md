@@ -33,3 +33,13 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 
 - Se acordó mantener este archivo como historia cronológica de trabajo.
 - Se acordó mantener además un skill específico del repositorio para que futuras guías conozcan las reglas, decisiones y procedimientos de Forja.
+
+### Cambio 3 — Lint y formato
+
+- Se formateó el código fuente mantenido con Prettier.
+- Se excluyeron del lint los artefactos generados de `src/generated`, que no deben editarse manualmente.
+- Se corrigieron dos escapes innecesarios detectados por ESLint en el preview.
+- `pnpm run lint` ahora termina correctamente; quedan 6 warnings preexistentes de Fast Refresh en componentes UI.
+- `pnpm run test`: 18 tests pasaron.
+- `pnpm exec tsc --noEmit`: sin errores.
+- `pnpm run build`: completado correctamente; permanece el aviso de `inputValidator()` deprecado.

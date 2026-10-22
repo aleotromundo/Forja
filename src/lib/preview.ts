@@ -20,12 +20,23 @@ export function inspectHtml(source: string) {
       const startTag = loc.startTag;
       if (!startTag) return;
       const children = node.childNodes;
-      const text = children.filter((child) => "value" in child).map((child) => "value" in child ? child.value : "").join("");
+      const text = children
+        .filter((child) => "value" in child)
+        .map((child) => ("value" in child ? child.value : ""))
+        .join("");
       const id = `forja-${elements.length}`;
       node.attrs = node.attrs.filter((attr) => attr.name !== "data-forja-id");
       node.attrs.push({ name: "data-forja-id", value: id });
-      elements.push({ id, tag: node.tagName, text, start: startTag.endOffset, end: loc.endTag?.startOffset ?? loc.endOffset,
-        editable: children.every((child) => child.nodeName === "#text") && !["script", "style", "textarea", "title"].includes(node.tagName) });
+      elements.push({
+        id,
+        tag: node.tagName,
+        text,
+        start: startTag.endOffset,
+        end: loc.endTag?.startOffset ?? loc.endOffset,
+        editable:
+          children.every((child) => child.nodeName === "#text") &&
+          !["script", "style", "textarea", "title"].includes(node.tagName),
+      });
     }
     if ("childNodes" in node) node.childNodes.forEach(walk);
   }
@@ -35,7 +46,8 @@ export function inspectHtml(source: string) {
 
 export function replaceElementText(source: string, id: string, text: string) {
   const element = inspectHtml(source).elements.find((item) => item.id === id);
-  if (!element?.editable) throw new Error("Este elemento contiene otros elementos; pedile el cambio a la IA.");
+  if (!element?.editable)
+    throw new Error("Este elemento contiene otros elementos; pedile el cambio a la IA.");
   const escaped = text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   return source.slice(0, element.start) + escaped + source.slice(element.end);
 }
@@ -81,5 +93,5 @@ export function bridgeScript(token: string, color: string) {
     });
     document.addEventListener('submit',event=>event.preventDefault(),true);
     emit({type:'ready'});
-  })()<\/script>`;
+  })()<${"/"}script>`;
 }

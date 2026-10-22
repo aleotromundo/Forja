@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Code2, FolderOpen, Files, Flame, Globe, Search, Sparkles, Undo2, Redo2, Save } from "lucide-react";
+import {
+  Code2,
+  FolderOpen,
+  Files,
+  Flame,
+  Globe,
+  Search,
+  Sparkles,
+  Undo2,
+  Redo2,
+  Save,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -73,14 +84,19 @@ export function Workbench() {
   const [, updateHistory] = useState(0);
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
-  const record = (entry: HistoryEntry) => { editHistory.current.record(entry); updateHistory((v) => v + 1); };
+  const record = (entry: HistoryEntry) => {
+    editHistory.current.record(entry);
+    updateHistory((v) => v + 1);
+  };
   const travel = async (redo = false, index?: number) => {
     if (busy) return;
     try {
       if (index !== undefined) await editHistory.current.undoThrough(index);
       else if (redo) await editHistory.current.redo();
       else await editHistory.current.undo();
-    } catch { toast.error("No se pudo restaurar el cambio. Revisá el permiso de tu carpeta."); }
+    } catch {
+      toast.error("No se pudo restaurar el cambio. Revisá el permiso de tu carpeta.");
+    }
     updateHistory((v) => v + 1);
   };
   const changeText = (path: string, content: string, original?: string) => {
@@ -89,9 +105,13 @@ export function Workbench() {
     if (before === content) return;
     const apply = (value: string) => {
       setActive(path);
-      setTabs((current) => current.some((tab) => tab.path === path)
-        ? current.map((tab) => tab.path === path ? { ...tab, content: value, showDiff: false } : tab)
-        : [...current, { path, content: value, saved: previous?.saved ?? original ?? before }]);
+      setTabs((current) =>
+        current.some((tab) => tab.path === path)
+          ? current.map((tab) =>
+              tab.path === path ? { ...tab, content: value, showDiff: false } : tab,
+            )
+          : [...current, { path, content: value, saved: previous?.saved ?? original ?? before }],
+      );
     };
     record({ undo: () => apply(before), redo: () => apply(content) });
     apply(content);
@@ -101,14 +121,18 @@ export function Workbench() {
 
   const files = useMemo(() => flatten(tree), [tree]);
 
-  const refresh = useCallback(async (r = root) => {
-    if (r) setTree(await readTree(r));
-  }, [root]);
+  const refresh = useCallback(
+    async (r = root) => {
+      if (r) setTree(await readTree(r));
+    },
+    [root],
+  );
 
   const openFolder = async () => {
     try {
       const h = await pickFolder();
-      editHistory.current.clear(); updateHistory((v) => v + 1);
+      editHistory.current.clear();
+      updateHistory((v) => v + 1);
       setMessages([]);
       setRoot(h);
       setTabs([]);
@@ -132,7 +156,9 @@ export function Workbench() {
       if (!exists) {
         try {
           const content = await readFile(root, path);
-          setTabs((ts) => (ts.some((t) => t.path === path) ? ts : [...ts, { path, content, saved: content }]));
+          setTabs((ts) =>
+            ts.some((t) => t.path === path) ? ts : [...ts, { path, content, saved: content }],
+          );
         } catch {
           toast.error(`No se pudo leer ${path}`);
           return;
@@ -167,7 +193,8 @@ export function Workbench() {
 
   const closeTab = (path: string) => {
     const t = tabs.find((x) => x.path === path);
-    if (t && t.content !== t.saved && !confirm(`${path} tiene cambios sin guardar. ¿Cerrar igual?`)) return;
+    if (t && t.content !== t.saved && !confirm(`${path} tiene cambios sin guardar. ¿Cerrar igual?`))
+      return;
     const rest = tabs.filter((x) => x.path !== path);
     setTabs(rest);
     if (active === path) setActive(rest.at(-1)?.path ?? null);
@@ -198,7 +225,9 @@ export function Workbench() {
 
   const sendChat = async (text: string, extras: ChatExtras): Promise<boolean> => {
     if (!root) return false;
-    const input = previewContext ? `${text}\n\n[Contexto seleccionado en vista previa]\n${previewContext}` : text;
+    const input = previewContext
+      ? `${text}\n\n[Contexto seleccionado en vista previa]\n${previewContext}`
+      : text;
     const history: ChatMsg[] = [...messages, { role: "user", content: input }];
     setBusy(true);
     try {
@@ -211,7 +240,10 @@ export function Workbench() {
         if (input.includes(f) || (name && input.includes(name))) wanted.add(f);
       });
       const ctx = await collectChatContext(extras, [...wanted], async (path) => {
-        return tabsRef.current.find((tab) => tab.path === path)?.content ?? await readFile(root, path).catch(() => null);
+        return (
+          tabsRef.current.find((tab) => tab.path === path)?.content ??
+          (await readFile(root, path).catch(() => null))
+        );
       });
       setMessages(history);
 
@@ -230,7 +262,9 @@ export function Workbench() {
       // Apply edits to disk and editor.
       const snap: Snapshot = [];
       for (const e of res.edits) {
-        const prev = tabs.find((t) => t.path === e.path)?.content ?? (await readFile(root, e.path).catch(() => null));
+        const prev =
+          tabs.find((t) => t.path === e.path)?.content ??
+          (await readFile(root, e.path).catch(() => null));
         snap.push({ path: e.path, before: prev });
         if (e.action === "delete") {
           await removeEntry(root, e.path).catch(() => {});
@@ -241,39 +275,54 @@ export function Workbench() {
       const idx = history.length;
       if (snap.length) {
         const folder = root;
-        const after = res.edits.map((e) => ({ path: e.path, before: e.action === "delete" ? null : e.content ?? "" }));
+        const after = res.edits.map((e) => ({
+          path: e.path,
+          before: e.action === "delete" ? null : (e.content ?? ""),
+        }));
         const restore = async (values: Snapshot, undone: boolean) => {
           for (const item of values) {
             if (item.before === null) await removeEntry(folder, item.path);
             else await writeFile(folder, item.path, item.before);
           }
           setTabs((current) => {
-            let next = current.filter((tab) => !values.some((item) => item.path === tab.path && item.before === null));
+            let next = current.filter(
+              (tab) => !values.some((item) => item.path === tab.path && item.before === null),
+            );
             for (const item of values) {
               if (item.before === null) continue;
               const content = item.before;
               next = next.some((tab) => tab.path === item.path)
-                ? next.map((tab) => tab.path === item.path ? { ...tab, content, saved: content, showDiff: false } : tab)
+                ? next.map((tab) =>
+                    tab.path === item.path
+                      ? { ...tab, content, saved: content, showDiff: false }
+                      : tab,
+                  )
                 : [...next, { path: item.path, content, saved: content }];
             }
             return next;
           });
           setActive(values.find((item) => item.before !== null)?.path ?? null);
-          setMessages((current) => current.map((message, i) => i === idx ? { ...message, undone } : message));
+          setMessages((current) =>
+            current.map((message, i) => (i === idx ? { ...message, undone } : message)),
+          );
           await refresh(folder);
         };
         record({ id: idx, undo: () => restore(snap, true), redo: () => restore(after, false) });
       }
 
       setTabs((ts) => {
-        let next = ts.filter((t) => !res.edits.some((e) => e.action === "delete" && e.path === t.path));
+        let next = ts.filter(
+          (t) => !res.edits.some((e) => e.action === "delete" && e.path === t.path),
+        );
         for (const e of res.edits) {
           if (e.action !== "write") continue;
           const before = snap.find((s) => s.path === e.path)?.before ?? "";
           const content = e.content ?? "";
           const existing = next.find((t) => t.path === e.path);
           next = existing
-            ? next.map((t) => (t.path === e.path ? { ...t, content, saved: content, before, showDiff: true } : t))
+            ? next.map((t) =>
+                t.path === e.path ? { ...t, content, saved: content, before, showDiff: true } : t,
+              )
             : [...next, { path: e.path, content, saved: content, before, showDiff: true }];
         }
         return next;
@@ -285,10 +334,19 @@ export function Workbench() {
 
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: res.reply, edits: res.edits.map((e) => ({ path: e.path, action: e.action })), provider: res.provider, team: res.team },
+        {
+          role: "assistant",
+          content: res.reply,
+          edits: res.edits.map((e) => ({ path: e.path, action: e.action })),
+          provider: res.provider,
+          team: res.team,
+        },
       ]);
     } catch (err) {
-      setMessages((m) => [...m, { role: "assistant", content: (err as Error).message, error: true }]);
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: (err as Error).message, error: true },
+      ]);
       return false;
     } finally {
       setBusy(false);
@@ -300,9 +358,12 @@ export function Workbench() {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
       const target = e.target instanceof Element ? e.target : null;
-      const nativeText = target?.closest("input, textarea, [contenteditable=true]") && !target?.closest(".monaco-editor");
+      const nativeText =
+        target?.closest("input, textarea, [contenteditable=true]") &&
+        !target?.closest(".monaco-editor");
       if (mod && !nativeText && ["z", "y"].includes(e.key.toLowerCase())) {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
         void travel(e.shiftKey || e.key.toLowerCase() === "y");
       } else if (mod && e.key.toLowerCase() === "p") {
         e.preventDefault();
@@ -330,14 +391,18 @@ export function Workbench() {
       <div className="flex h-8 shrink-0 items-center gap-3 border-b bg-panel-deep px-3 text-xs">
         <Flame className="h-4 w-4 text-ember" />
         <span className="font-semibold tracking-wide">Forja</span>
-        <button onClick={openFolder} className="rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+        <button
+          onClick={openFolder}
+          className="rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
           Abrir carpeta
         </button>
         <button
           onClick={() => root && setQuickOpen(true)}
           className="mx-auto flex w-80 items-center gap-2 rounded border bg-background px-2 py-0.5 text-muted-foreground hover:border-ember"
         >
-          <Search className="h-3.5 w-3.5" /> {root ? root.name : "Forja"} <span className="ml-auto font-mono">Ctrl+P</span>
+          <Search className="h-3.5 w-3.5" /> {root ? root.name : "Forja"}{" "}
+          <span className="ml-auto font-mono">Ctrl+P</span>
         </button>
         <span className="w-24" />
       </div>
@@ -346,9 +411,24 @@ export function Workbench() {
         {/* Activity bar */}
         <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r bg-panel-deep py-2">
           {[
-            { icon: Files, on: showExplorer, fn: () => setShowExplorer((v) => !v), title: "Explorador (Ctrl+B)" },
-            { icon: Search, on: false, fn: () => root && setQuickOpen(true), title: "Buscar archivo (Ctrl+P)" },
-            { icon: Sparkles, on: showChat, fn: () => setShowChat((v) => !v), title: "Chat IA (Ctrl+L)" },
+            {
+              icon: Files,
+              on: showExplorer,
+              fn: () => setShowExplorer((v) => !v),
+              title: "Explorador (Ctrl+B)",
+            },
+            {
+              icon: Search,
+              on: false,
+              fn: () => root && setQuickOpen(true),
+              title: "Buscar archivo (Ctrl+P)",
+            },
+            {
+              icon: Sparkles,
+              on: showChat,
+              fn: () => setShowChat((v) => !v),
+              title: "Chat IA (Ctrl+L)",
+            },
           ].map(({ icon: Icon, on, fn, title }) => (
             <button
               key={title}
@@ -381,7 +461,9 @@ export function Workbench() {
                 />
               ) : (
                 <div className="flex h-full flex-col gap-3 bg-panel p-4 text-[13px]">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Explorador</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Explorador
+                  </div>
                   <p className="text-muted-foreground">No hay ninguna carpeta abierta.</p>
                   <button
                     onClick={openFolder}
@@ -391,7 +473,8 @@ export function Workbench() {
                   </button>
                   {!isSupported() && (
                     <p className="text-xs text-destructive">
-                      Tu navegador no permite abrir carpetas locales. Usá Chrome, Edge u Opera en computadora.
+                      Tu navegador no permite abrir carpetas locales. Usá Chrome, Edge u Opera en
+                      computadora.
                     </p>
                   )}
                 </div>
@@ -403,41 +486,108 @@ export function Workbench() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex h-9 shrink-0 items-center justify-end gap-1 border-b bg-panel-deep px-2">
-            <Button variant="ghost" size="sm" disabled={!activeTab || busy || activeTab.content === activeTab.saved} title="Guardar archivo (Ctrl+S)" onClick={() => active && void save(active).catch(() => toast.error("No se pudo guardar el archivo"))}><Save /> Guardar</Button>
-            <Button variant="ghost" size="icon" aria-label="Deshacer" title="Deshacer (Ctrl+Z)" disabled={busy || !editHistory.current.canUndo} onClick={() => void travel()}><Undo2 /></Button>
-            <Button variant="ghost" size="icon" aria-label="Rehacer" title="Rehacer (Ctrl+Shift+Z)" disabled={busy || !editHistory.current.canRedo} onClick={() => void travel(true)}><Redo2 /></Button>
-            <Button variant={view === "code" ? "secondary" : "ghost"} size="sm" aria-pressed={view === "code"} onClick={() => setView("code")}><Code2 /> Código</Button>
-            <Button variant={view === "preview" ? "secondary" : "ghost"} size="sm" aria-pressed={view === "preview"} onClick={() => setView("preview")}><Globe /> Vista previa</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!activeTab || busy || activeTab.content === activeTab.saved}
+              title="Guardar archivo (Ctrl+S)"
+              onClick={() =>
+                active &&
+                void save(active).catch(() => toast.error("No se pudo guardar el archivo"))
+              }
+            >
+              <Save /> Guardar
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Deshacer"
+              title="Deshacer (Ctrl+Z)"
+              disabled={busy || !editHistory.current.canUndo}
+              onClick={() => void travel()}
+            >
+              <Undo2 />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Rehacer"
+              title="Rehacer (Ctrl+Shift+Z)"
+              disabled={busy || !editHistory.current.canRedo}
+              onClick={() => void travel(true)}
+            >
+              <Redo2 />
+            </Button>
+            <Button
+              variant={view === "code" ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={view === "code"}
+              onClick={() => setView("code")}
+            >
+              <Code2 /> Código
+            </Button>
+            <Button
+              variant={view === "preview" ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={view === "preview"}
+              onClick={() => setView("preview")}
+            >
+              <Globe /> Vista previa
+            </Button>
           </div>
           <div className="min-h-0 flex-1">
-          <div className={cn("h-full", view !== "preview" && "hidden")}><PreviewPane key={root?.name ?? "empty"} root={root} files={files} tabs={tabs} active={active}
-            onChange={changeText}
-            onRecord={record} onUndo={() => void travel()} onRedo={() => void travel(true)} canUndo={editHistory.current.canUndo && !busy} canRedo={editHistory.current.canRedo && !busy}
-            onContext={(context) => { setPreviewContext(context); setShowChat(true); }} /></div>
-          <div className={cn("h-full", view !== "code" && "hidden")}>
-          <EditorPane
-            tabs={tabs}
-            active={active}
-            reveal={reveal}
-            onSelect={setActive}
-            onClose={closeTab}
-            onChange={changeText}
-            onSave={save}
-            onToggleDiff={(p) => setTabs((ts) => ts.map((t) => (t.path === p ? { ...t, showDiff: !t.showDiff } : t)))}
-          /></div>
+            <div className={cn("h-full", view !== "preview" && "hidden")}>
+              <PreviewPane
+                key={root?.name ?? "empty"}
+                root={root}
+                files={files}
+                tabs={tabs}
+                active={active}
+                onChange={changeText}
+                onRecord={record}
+                onUndo={() => void travel()}
+                onRedo={() => void travel(true)}
+                canUndo={editHistory.current.canUndo && !busy}
+                canRedo={editHistory.current.canRedo && !busy}
+                onContext={(context) => {
+                  setPreviewContext(context);
+                  setShowChat(true);
+                }}
+              />
+            </div>
+            <div className={cn("h-full", view !== "code" && "hidden")}>
+              <EditorPane
+                tabs={tabs}
+                active={active}
+                reveal={reveal}
+                onSelect={setActive}
+                onClose={closeTab}
+                onChange={changeText}
+                onSave={save}
+                onToggleDiff={(p) =>
+                  setTabs((ts) =>
+                    ts.map((t) => (t.path === p ? { ...t, showDiff: !t.showDiff } : t)),
+                  )
+                }
+              />
+            </div>
           </div>
         </div>
 
         {showChat && (
           <>
-            <div onMouseDown={dragRight} className="w-1 shrink-0 cursor-col-resize hover:bg-ember" />
+            <div
+              onMouseDown={dragRight}
+              className="w-1 shrink-0 cursor-col-resize hover:bg-ember"
+            />
             <div style={{ width: rightW }} className="shrink-0 border-l">
               <ChatPanel
                 messages={messages}
                 busy={busy}
                 disabled={!root}
                 onSend={sendChat}
-                projectName={root?.name} projectFiles={files}
+                projectName={root?.name}
+                projectFiles={files}
                 onOpenFile={openAt}
                 onUndo={(index) => void travel(false, index)}
                 previewContext={previewContext}

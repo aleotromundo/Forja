@@ -130,12 +130,19 @@
 }
 
 @utility ember-glow {
-  box-shadow: 0 0 0 1px var(--ember), 0 0 24px var(--ember-glow);
+  box-shadow:
+    0 0 0 1px var(--ember),
+    0 0 24px var(--ember-glow);
 }
 
 @keyframes forge-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 @utility animate-forge {
   animation: forge-pulse 1.2s ease-in-out infinite;

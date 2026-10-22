@@ -5,9 +5,16 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Forja — Editor de código con IA" },
-      { name: "description", content: "Editor tipo VS Code en el navegador: abrí carpetas locales y dejá que la IA modifique tu código." },
+      {
+        name: "description",
+        content:
+          "Editor tipo VS Code en el navegador: abrí carpetas locales y dejá que la IA modifique tu código.",
+      },
       { property: "og:title", content: "Forja — Editor de código con IA" },
-      { property: "og:description", content: "Abrí tu proyecto local y editalo hablando con la IA." },
+      {
+        property: "og:description",
+        content: "Abrí tu proyecto local y editalo hablando con la IA.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

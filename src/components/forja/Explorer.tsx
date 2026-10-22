@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { ChevronRight, File, FilePlus, Folder, FolderOpen, FolderPlus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  ChevronRight,
+  File,
+  FilePlus,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import type { FileNode } from "@/lib/fs";
 import { cn } from "@/lib/utils";
 
@@ -37,8 +46,14 @@ export function Explorer(p: Props) {
                 setSelectedDir(n.path);
               }}
             >
-              <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 transition-transform", isOpen && "rotate-90")} />
-              {isOpen ? <FolderOpen className="h-4 w-4 shrink-0 text-ember" /> : <Folder className="h-4 w-4 shrink-0 text-ember" />}
+              <ChevronRight
+                className={cn("h-3.5 w-3.5 shrink-0 transition-transform", isOpen && "rotate-90")}
+              />
+              {isOpen ? (
+                <FolderOpen className="h-4 w-4 shrink-0 text-ember" />
+              ) : (
+                <Folder className="h-4 w-4 shrink-0 text-ember" />
+              )}
               <span className="truncate">{n.name}</span>
               <button
                 className="ml-auto hidden text-muted-foreground hover:text-destructive group-hover:block"
@@ -70,7 +85,9 @@ export function Explorer(p: Props) {
         >
           <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className={cn("truncate", p.changed.has(n.path) && "text-added")}>{n.name}</span>
-          {p.changed.has(n.path) && <span className="ml-1 text-[10px] font-semibold text-added">M</span>}
+          {p.changed.has(n.path) && (
+            <span className="ml-1 text-[10px] font-semibold text-added">M</span>
+          )}
           <button
             className="ml-auto hidden text-muted-foreground hover:text-destructive group-hover:block"
             onClick={(e) => {
@@ -90,10 +107,18 @@ export function Explorer(p: Props) {
       <div className="flex h-9 items-center justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <span>Explorador</span>
         <div className="flex gap-1.5">
-          <button title="Nuevo archivo" onClick={() => p.onNewFile(selectedDir)} className="hover:text-foreground">
+          <button
+            title="Nuevo archivo"
+            onClick={() => p.onNewFile(selectedDir)}
+            className="hover:text-foreground"
+          >
             <FilePlus className="h-4 w-4" />
           </button>
-          <button title="Nueva carpeta" onClick={() => p.onNewFolder(selectedDir)} className="hover:text-foreground">
+          <button
+            title="Nueva carpeta"
+            onClick={() => p.onNewFolder(selectedDir)}
+            className="hover:text-foreground"
+          >
             <FolderPlus className="h-4 w-4" />
           </button>
           <button title="Refrescar" onClick={p.onRefresh} className="hover:text-foreground">

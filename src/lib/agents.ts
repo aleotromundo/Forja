@@ -12,11 +12,38 @@ export const LEAD_ROLE =
   "ROL: sos el líder del equipo Forja. Recibís los aportes de especialistas que trabajaron en paralelo; combinalos, resolvé contradicciones y entregá una única respuesta final.";
 
 export const SPECIALISTS: ForjaAgent[] = [
-  { id: "architect", name: "Arquitecto", focus: "estructura del proyecto, archivos a tocar, orden de pasos y decisiones técnicas", triggers: /./ },
-  { id: "ui", name: "Diseño UI", focus: "interfaz, estilos, CSS/Tailwind, maquetación, accesibilidad y adaptación a pantallas", triggers: /dise|estilo|color|css|tailwind|bot[oó]n|p[aá]gina|pantalla|layout|ui|visual|fuente|men[uú]|responsive|animaci/i },
-  { id: "logic", name: "Lógica y datos", focus: "lógica de negocio, estado, APIs, datos, servidor y rendimiento", triggers: /api|dato|estado|l[oó]gica|funci[oó]n|servidor|backend|fetch|base|guardar|login|formulario|calcul|rendimiento|lento/i },
-  { id: "qa", name: "QA y seguridad", focus: "errores, casos borde, validaciones, seguridad y pruebas", triggers: /error|bug|falla|roto|no anda|test|prueba|segur|valid/i },
-  { id: "docs", name: "Documentación", focus: "README, comentarios y guías de uso", triggers: /doc|readme|coment|gu[ií]a|explic/i },
+  {
+    id: "architect",
+    name: "Arquitecto",
+    focus: "estructura del proyecto, archivos a tocar, orden de pasos y decisiones técnicas",
+    triggers: /./,
+  },
+  {
+    id: "ui",
+    name: "Diseño UI",
+    focus: "interfaz, estilos, CSS/Tailwind, maquetación, accesibilidad y adaptación a pantallas",
+    triggers:
+      /dise|estilo|color|css|tailwind|bot[oó]n|p[aá]gina|pantalla|layout|ui|visual|fuente|men[uú]|responsive|animaci/i,
+  },
+  {
+    id: "logic",
+    name: "Lógica y datos",
+    focus: "lógica de negocio, estado, APIs, datos, servidor y rendimiento",
+    triggers:
+      /api|dato|estado|l[oó]gica|funci[oó]n|servidor|backend|fetch|base|guardar|login|formulario|calcul|rendimiento|lento/i,
+  },
+  {
+    id: "qa",
+    name: "QA y seguridad",
+    focus: "errores, casos borde, validaciones, seguridad y pruebas",
+    triggers: /error|bug|falla|roto|no anda|test|prueba|segur|valid/i,
+  },
+  {
+    id: "docs",
+    name: "Documentación",
+    focus: "README, comentarios y guías de uso",
+    triggers: /doc|readme|coment|gu[ií]a|explic/i,
+  },
 ];
 
 /** Architect always participates; others join when relevant. Up to 3 specialists in parallel. */

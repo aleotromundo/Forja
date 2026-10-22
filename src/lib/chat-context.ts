@@ -1,5 +1,12 @@
-export interface ChatAttachment { path: string; content: string; }
-export interface ChatExtras { attachments: ChatAttachment[]; projectPaths: string[]; mode?: "plan" | "edit"; }
+export interface ChatAttachment {
+  path: string;
+  content: string;
+}
+export interface ChatExtras {
+  attachments: ChatAttachment[];
+  projectPaths: string[];
+  mode?: "plan" | "edit";
+}
 
 export async function collectChatContext(
   explicit: ChatExtras,
@@ -10,12 +17,17 @@ export async function collectChatContext(
   let remaining = 120_000;
   const add = (file: ChatAttachment, required: boolean) => {
     if (result.length >= 40 || file.content.length > remaining) {
-      if (required) throw new Error("Los archivos seleccionados superan el espacio de contexto. Quitá alguno y volvé a enviar.");
+      if (required)
+        throw new Error(
+          "Los archivos seleccionados superan el espacio de contexto. Quitá alguno y volvé a enviar.",
+        );
       return;
     }
-    result.push(file); remaining -= file.content.length;
+    result.push(file);
+    remaining -= file.content.length;
   };
-  for (const file of explicit.attachments) add({ ...file, path: `[Adjunto de referencia] ${file.path}` }, true);
+  for (const file of explicit.attachments)
+    add({ ...file, path: `[Adjunto de referencia] ${file.path}` }, true);
   const selected = new Set(explicit.projectPaths);
   for (const path of new Set([...selected, ...automatic])) {
     const content = await read(path);

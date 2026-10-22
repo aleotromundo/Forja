@@ -46,7 +46,10 @@ let counter = 0;
 export const askForja = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data }): Promise<AiResult> => {
-    const slots = rotateSlots(buildSlots(process.env as Record<string, string | undefined>), counter++);
+    const slots = rotateSlots(
+      buildSlots(process.env as Record<string, string | undefined>),
+      counter++,
+    );
     if (slots.length === 0) {
       throw new Error(
         "No hay claves de IA configuradas. Agregá GROQ_API_KEYS, GEMINI_API_KEYS u OPENROUTER_API_KEYS.",
@@ -57,7 +60,13 @@ export const askForja = createServerFn({ method: "POST" })
       `ARCHIVOS DEL PROYECTO:\n${data.tree.join("\n")}\n\n` +
       (data.activePath ? `ARCHIVO ACTIVO: ${data.activePath}\n\n` : "") +
       data.files
-        .map((f) => `===== ${f.path} =====\n${f.content.split("\n").map((line, i) => `${i + 1}| ${line}`).join("\n")}`)
+        .map(
+          (f) =>
+            `===== ${f.path} =====\n${f.content
+              .split("\n")
+              .map((line, i) => `${i + 1}| ${line}`)
+              .join("\n")}`,
+        )
         .join("\n\n");
 
     type Msg = { role: "system" | "user" | "assistant"; content: string };
@@ -70,23 +79,42 @@ export const askForja = createServerFn({ method: "POST" })
             const r = await generateResponse({
               model: "openai/gpt-6-astra",
               instructions: `${system}\n\n${context}`,
-              input: convo.map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`).join("\n\n"),
+              input: convo
+                .map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`)
+                .join("\n\n"),
             });
             for (const item of r.output ?? []) {
-              if (item.type === "message") for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
+              if (item.type === "message")
+                for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
             }
           } else {
-            const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: `Bearer ${slot.key}` };
-            if (slot.provider === "openrouter") { headers["HTTP-Referer"] = "https://forja.app"; headers["X-Title"] = "Forja"; }
+            const headers: Record<string, string> = {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${slot.key}`,
+            };
+            if (slot.provider === "openrouter") {
+              headers["HTTP-Referer"] = "https://forja.app";
+              headers["X-Title"] = "Forja";
+            }
             const res = await fetch(slot.url, {
               method: "POST",
               headers,
-              body: JSON.stringify({ model: slot.model, messages: [{ role: "system", content: system }, { role: "system", content: context }, ...convo], temperature: json ? 0.2 : 0.4 }),
+              body: JSON.stringify({
+                model: slot.model,
+                messages: [
+                  { role: "system", content: system },
+                  { role: "system", content: context },
+                  ...convo,
+                ],
+                temperature: json ? 0.2 : 0.4,
+              }),
             });
             if (!res.ok) {
               const body = await res.text();
               errors.push(`${slot.provider} [${res.status}]: ${body.slice(0, 200)}`);
-              console.error(`AI provider failed ${slot.provider} [${res.status}]: ${body.slice(0, 500)}`);
+              console.error(
+                `AI provider failed ${slot.provider} [${res.status}]: ${body.slice(0, 500)}`,
+              );
               continue;
             }
             const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
@@ -105,7 +133,12 @@ export const askForja = createServerFn({ method: "POST" })
     const team = pickTeam(lastUser);
     const notes = await Promise.all(
       team.map((agent, i) =>
-        call(specialistPrompt(agent, data.mode), data.messages.slice(-6), rotateSlots(slots, i + 1), false)
+        call(
+          specialistPrompt(agent, data.mode),
+          data.messages.slice(-6),
+          rotateSlots(slots, i + 1),
+          false,
+        )
           .then((r) => ({ agent, text: r.text.slice(0, 4000) }))
           .catch(() => null),
       ),
@@ -117,16 +150,36 @@ export const askForja = createServerFn({ method: "POST" })
       : "";
 
     // 2) The lead integrates everything and returns the JSON with edits.
-    const lead = await call(`${SYSTEM}\n\n${LEAD_ROLE}\n${modeInstructions(data.mode)}${teamNotes}`, data.messages, slots, true);
+    const lead = await call(
+      `${SYSTEM}\n\n${LEAD_ROLE}\n${modeInstructions(data.mode)}${teamNotes}`,
+      data.messages,
+      slots,
+      true,
+    );
     const teamNames = done.map((n) => n.agent.name);
     const parsed = extractJson(lead.text) as { reply?: unknown; edits?: unknown } | null;
-    if (!parsed) return { reply: lead.text, edits: [], provider: lead.provider, model: lead.model, team: teamNames };
+    if (!parsed)
+      return {
+        reply: lead.text,
+        edits: [],
+        provider: lead.provider,
+        model: lead.model,
+        team: teamNames,
+      };
     const edits = Array.isArray(parsed.edits)
-      ? (parsed.edits as AiEdit[]).filter((e) => e && typeof e.path === "string" && (e.action === "delete" || typeof e.content === "string"))
+      ? (parsed.edits as AiEdit[]).filter(
+          (e) =>
+            e &&
+            typeof e.path === "string" &&
+            (e.action === "delete" || typeof e.content === "string"),
+        )
       : [];
     return {
       reply: typeof parsed.reply === "string" ? parsed.reply : "Listo.",
-      edits: enforceMode(data.mode, edits.map((e) => ({ ...e, action: e.action === "delete" ? "delete" : "write" }))),
+      edits: enforceMode(
+        data.mode,
+        edits.map((e) => ({ ...e, action: e.action === "delete" ? "delete" : "write" })),
+      ),
       provider: lead.provider,
       model: lead.model,
       team: teamNames,

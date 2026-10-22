@@ -7,7 +7,16 @@ export interface FileNode {
   children?: FileNode[];
 }
 
-const IGNORE = new Set(["node_modules", ".git", "dist", "build", ".next", ".cache", ".turbo", ".vercel"]);
+const IGNORE = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  ".next",
+  ".cache",
+  ".turbo",
+  ".vercel",
+]);
 const MAX_FILES = 3000;
 
 type DirHandle = FileSystemDirectoryHandle & {
@@ -32,20 +41,28 @@ export async function readTree(root: FileSystemDirectoryHandle): Promise<FileNod
       const path = base ? `${base}/${h.name}` : h.name;
       if (h.kind === "directory") {
         if (IGNORE.has(h.name)) continue;
-        out.push({ name: h.name, path, kind: "directory", children: await walk(h as FileSystemDirectoryHandle, path) });
+        out.push({
+          name: h.name,
+          path,
+          kind: "directory",
+          children: await walk(h as FileSystemDirectoryHandle, path),
+        });
       } else {
         count++;
         out.push({ name: h.name, path, kind: "file" });
       }
     }
-    return out.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "directory" ? -1 : 1));
+    return out.sort((a, b) =>
+      a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "directory" ? -1 : 1,
+    );
   }
   return walk(root, "");
 }
 
 export function flatten(nodes: FileNode[]): string[] {
   const out: string[] = [];
-  const rec = (ns: FileNode[]) => ns.forEach((n) => (n.kind === "file" ? out.push(n.path) : rec(n.children ?? [])));
+  const rec = (ns: FileNode[]) =>
+    ns.forEach((n) => (n.kind === "file" ? out.push(n.path) : rec(n.children ?? [])));
   rec(nodes);
   return out;
 }
@@ -98,11 +115,40 @@ export async function fileExists(root: FileSystemDirectoryHandle, path: string) 
 }
 
 const LANGS: Record<string, string> = {
-  ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript", mjs: "javascript", cjs: "javascript",
-  json: "json", css: "css", scss: "scss", less: "less", html: "html", md: "markdown", py: "python",
-  rs: "rust", go: "go", java: "java", c: "c", cpp: "cpp", h: "cpp", cs: "csharp", php: "php",
-  rb: "ruby", sh: "shell", yml: "yaml", yaml: "yaml", xml: "xml", sql: "sql", svg: "xml", toml: "ini",
-  vue: "html", svelte: "html", kt: "kotlin", swift: "swift", dart: "dart",
+  ts: "typescript",
+  tsx: "typescript",
+  js: "javascript",
+  jsx: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  json: "json",
+  css: "css",
+  scss: "scss",
+  less: "less",
+  html: "html",
+  md: "markdown",
+  py: "python",
+  rs: "rust",
+  go: "go",
+  java: "java",
+  c: "c",
+  cpp: "cpp",
+  h: "cpp",
+  cs: "csharp",
+  php: "php",
+  rb: "ruby",
+  sh: "shell",
+  yml: "yaml",
+  yaml: "yaml",
+  xml: "xml",
+  sql: "sql",
+  svg: "xml",
+  toml: "ini",
+  vue: "html",
+  svelte: "html",
+  kt: "kotlin",
+  swift: "swift",
+  dart: "dart",
 };
 
 export function languageOf(path: string) {
@@ -110,7 +156,8 @@ export function languageOf(path: string) {
   return LANGS[ext] ?? "plaintext";
 }
 
-const BINARY = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|woff2?|ttf|otf|mp[34]|mov|wasm|lock|exe|bin)$/i;
+const BINARY =
+  /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|woff2?|ttf|otf|mp[34]|mov|wasm|lock|exe|bin)$/i;
 export function isTextFile(path: string) {
   return !BINARY.test(path);
 }

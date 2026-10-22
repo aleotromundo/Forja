@@ -71,7 +71,16 @@ const OPTIONS = {
   padding: { top: 8 },
 };
 
-export function EditorPane({ tabs, active, reveal, onSelect, onClose, onChange, onSave, onToggleDiff }: Props) {
+export function EditorPane({
+  tabs,
+  active,
+  reveal,
+  onSelect,
+  onClose,
+  onChange,
+  onSave,
+  onToggleDiff,
+}: Props) {
   const tab = tabs.find((t) => t.path === active);
   const editorRef = useRef<CodeEditor | null>(null);
 
@@ -108,7 +117,9 @@ export function EditorPane({ tabs, active, reveal, onSelect, onClose, onChange, 
                 t.path === active && "border-t-2 border-t-ember bg-tab-active text-foreground",
               )}
             >
-              <span className={cn(t.before !== undefined && "text-added")}>{t.path.split("/").pop()}</span>
+              <span className={cn(t.before !== undefined && "text-added")}>
+                {t.path.split("/").pop()}
+              </span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -116,7 +127,9 @@ export function EditorPane({ tabs, active, reveal, onSelect, onClose, onChange, 
                 }}
                 className="flex h-4 w-4 items-center justify-center rounded hover:bg-accent"
               >
-                {dirty ? <span className="h-2 w-2 rounded-full bg-foreground group-hover:hidden" /> : null}
+                {dirty ? (
+                  <span className="h-2 w-2 rounded-full bg-foreground group-hover:hidden" />
+                ) : null}
                 <X className={cn("h-3.5 w-3.5", dirty && "hidden group-hover:block")} />
               </button>
             </div>
@@ -130,9 +143,13 @@ export function EditorPane({ tabs, active, reveal, onSelect, onClose, onChange, 
             {tab.before !== undefined && (
               <button
                 onClick={() => onToggleDiff(tab.path)}
-                className={cn("flex items-center gap-1 rounded px-2 py-0.5 hover:bg-accent", tab.showDiff && "text-ember")}
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-0.5 hover:bg-accent",
+                  tab.showDiff && "text-ember",
+                )}
               >
-                <GitCompare className="h-3.5 w-3.5" /> {tab.showDiff ? "Cerrar diff" : "Ver cambios de la IA"}
+                <GitCompare className="h-3.5 w-3.5" />{" "}
+                {tab.showDiff ? "Cerrar diff" : "Ver cambios de la IA"}
               </button>
             )}
           </div>
@@ -159,7 +176,10 @@ export function EditorPane({ tabs, active, reveal, onSelect, onClose, onChange, 
                 onChange={(v) => onChange(tab.path, v ?? "")}
                 onMount={(editor, monaco) => {
                   editorRef.current = editor;
-                  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => activeRef.current && saveRef.current(activeRef.current));
+                  editor.addCommand(
+                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+                    () => activeRef.current && saveRef.current(activeRef.current),
+                  );
                 }}
               />
             )}
