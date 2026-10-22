@@ -57,3 +57,10 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - El Workbench repite la validación antes de escribir o eliminar en la carpeta local.
 - Se agregaron tests para rutas válidas, absolutas, traversal y formatos inseguros.
 - Tests, TypeScript y build pasaron.
+
+### Cambio 6 — Lint sin warnings del kit UI
+
+- Se mantuvo la regla Fast Refresh para código de aplicación.
+- Se desactivó únicamente para `src/components/ui`, donde las primitivas exportan intencionalmente variantes y helpers además de componentes.
+- `pnpm run lint` ahora termina sin errores ni warnings.
+- Tests y TypeScript pasaron.
