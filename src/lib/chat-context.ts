@@ -8,15 +8,23 @@ export interface ChatExtras {
   mode?: "plan" | "edit";
 }
 
+export const MAX_CONTEXT_FILES = 40;
+export const MAX_CONTEXT_FILE_CHARS = 60_000;
+export const MAX_CONTEXT_CHARS = 120_000;
+
 export async function collectChatContext(
   explicit: ChatExtras,
   automatic: string[],
   read: (path: string) => Promise<string | null>,
 ) {
   const result: ChatAttachment[] = [];
-  let remaining = 120_000;
+  let remaining = MAX_CONTEXT_CHARS;
   const add = (file: ChatAttachment, required: boolean) => {
-    if (result.length >= 40 || file.content.length > remaining) {
+    if (
+      result.length >= MAX_CONTEXT_FILES ||
+      file.content.length > MAX_CONTEXT_FILE_CHARS ||
+      file.content.length > remaining
+    ) {
       if (required)
         throw new Error(
           "Los archivos seleccionados superan el espacio de contexto. Quitá alguno y volvé a enviar.",

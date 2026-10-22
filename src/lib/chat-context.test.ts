@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { collectChatContext } from "./chat-context";
+import { collectChatContext, MAX_CONTEXT_CHARS } from "./chat-context";
 
 it("sends attached file contents and chosen project files before automatic context", async () => {
   const result = await collectChatContext(
@@ -20,4 +20,16 @@ it("does not silently omit an unreadable selected project file", async () => {
   await expect(
     collectChatContext({ attachments: [], projectPaths: ["missing.ts"] }, [], async () => null),
   ).rejects.toThrow("missing.ts");
+});
+it("rejects selected context that exceeds the total limit", async () => {
+  await expect(
+    collectChatContext(
+      {
+        attachments: [{ path: "large.md", content: "x".repeat(MAX_CONTEXT_CHARS + 1) }],
+        projectPaths: [],
+      },
+      [],
+      async () => null,
+    ),
+  ).rejects.toThrow("espacio de contexto");
 });

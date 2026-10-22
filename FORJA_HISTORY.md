@@ -64,3 +64,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se desactivó únicamente para `src/components/ui`, donde las primitivas exportan intencionalmente variantes y helpers además de componentes.
 - `pnpm run lint` ahora termina sin errores ni warnings.
 - Tests y TypeScript pasaron.
+
+### Cambio 7 — Límites de contexto
+
+- Se centralizaron los límites: 40 archivos, 60.000 caracteres por archivo y 120.000 caracteres totales.
+- El cliente y el validador server-side comparten los mismos límites.
+- Se agregó una validación Zod del tamaño total antes de ejecutar llamadas de IA.
+- Se agregaron tests para contextos seleccionados que exceden el límite.
+- Tests, TypeScript y lint pasaron.

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateResponse } from "@lovable.dev/ai-gateway";
 import { buildSlots, extractJson, rotateSlots } from "./ai-providers";
 import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
+import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_CHARS, MAX_CONTEXT_FILES } from "./chat-context";
 import { isSafeRelativePath } from "./paths";
 
 const InputSchema = z.object({
@@ -10,7 +11,20 @@ const InputSchema = z.object({
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(40000) }))
     .min(1)
     .max(40),
-  files: z.array(z.object({ path: z.string(), content: z.string() })).max(40),
+  files: z
+    .array(z.object({ path: z.string(), content: z.string().max(MAX_CONTEXT_FILE_CHARS) }))
+    .max(MAX_CONTEXT_FILES)
+    .superRefine((files, ctx) => {
+      const total = files.reduce((sum, file) => sum + file.content.length, 0);
+      if (total > MAX_CONTEXT_CHARS)
+        ctx.addIssue({
+          code: z.ZodIssueCode.too_big,
+          maximum: MAX_CONTEXT_CHARS,
+          type: "string",
+          inclusive: true,
+          message: "El contexto supera el límite permitido.",
+        });
+    }),
   tree: z.array(z.string()).max(3000),
   activePath: z.string().nullable(),
   mode: z.enum(["plan", "edit"]).default("edit"),
