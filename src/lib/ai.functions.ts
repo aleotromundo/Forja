@@ -48,6 +48,18 @@ export interface AiStatus {
   providers: string[];
 }
 
+const PROVIDER_TIMEOUT_MS = 15_000;
+
+function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${provider} no respondió en ${PROVIDER_TIMEOUT_MS / 1000}s`)),
+      PROVIDER_TIMEOUT_MS,
+    );
+    operation.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
+
 export const getAiStatus = createServerFn({ method: "GET" }).handler((): AiStatus => {
   const slots = buildSlots(process.env as Record<string, string | undefined>);
   return {
@@ -60,7 +72,7 @@ const SYSTEM = `Sos Forja, un asistente de programación integrado en un editor 
 El usuario trabaja sobre una carpeta local. Recibís la lista de archivos del proyecto y el contenido de los archivos relevantes.
 Cuando el usuario pida cambios, modificá los archivos directamente.
 Respondé SIEMPRE y SOLO con un objeto JSON válido con esta forma:
-{"reply": "explicación breve en el idioma del usuario (markdown permitido)", "edits": [{"path": "ruta/relativa.ext", "action": "write", "content": "CONTENIDO COMPLETO DEL ARCHIVO"}]}
+{"delegate": false, "reply": "explicación breve en el idioma del usuario (markdown permitido)", "edits": [{"path": "ruta/relativa.ext", "action": "write", "content": "CONTENIDO COMPLETO DEL ARCHIVO"}]}
 Reglas:
 - "content" debe ser el archivo COMPLETO final, nunca fragmentos ni "...".
 - Para borrar un archivo usá {"path": "...", "action": "delete"}.
@@ -68,6 +80,12 @@ Reglas:
 - Si solo es una pregunta, devolvé "edits": [].
 - Usá rutas relativas exactamente como aparecen en la lista.
 - Cuando expliques una parte concreta del código, citá la ruta y la línea así: src/lib/archivo.ts:42. Los números "N| " que aparecen al inicio de cada línea del contexto son solo referencias: nunca los copies dentro del "content" de un edit.`;
+
+const RECEIVER_ROLE = `ROL: sos el receptor principal de Forja y el único interlocutor inicial.
+Primero decidí si el pedido necesita trabajo real sobre el proyecto.
+Poné "delegate": false para saludos, preguntas generales, explicaciones, ideas o conversaciones que no requieren analizar varios archivos.
+Poné "delegate": true solamente si hace falta inspeccionar o modificar el proyecto, preparar un plan técnico con contexto del código o resolver un trabajo complejo.
+Cuando "delegate" sea false, respondé directamente y no pidas especialistas. Cuando sea true, no inventes una respuesta final todavía: indicá brevemente que vas a delegar el trabajo.`;
 
 let counter = 0;
 
@@ -104,13 +122,16 @@ export const askForja = createServerFn({ method: "POST" })
         try {
           let text = "";
           if (slot.provider === "lovable") {
-            const r = await generateResponse({
-              model: "openai/gpt-6-astra",
-              instructions: `${system}\n\n${context}`,
-              input: convo
-                .map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`)
-                .join("\n\n"),
-            });
+            const r = await withTimeout(
+              generateResponse({
+                model: "openai/gpt-6-astra",
+                instructions: `${system}\n\n${context}`,
+                input: convo
+                  .map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`)
+                  .join("\n\n"),
+              }),
+              slot.provider,
+            );
             for (const item of r.output ?? []) {
               if (item.type === "message")
                 for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
@@ -124,9 +145,12 @@ export const askForja = createServerFn({ method: "POST" })
               headers["HTTP-Referer"] = "https://forja.app";
               headers["X-Title"] = "Forja";
             }
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
             const res = await fetch(slot.url, {
               method: "POST",
               headers,
+              signal: controller.signal,
               body: JSON.stringify({
                 model: slot.model,
                 messages: [
@@ -136,7 +160,7 @@ export const askForja = createServerFn({ method: "POST" })
                 ],
                 temperature: json ? 0.2 : 0.4,
               }),
-            });
+            }).finally(() => clearTimeout(timer));
             if (!res.ok) {
               const body = await res.text();
               errors.push(`${slot.provider} [${res.status}]: ${body.slice(0, 200)}`);
@@ -150,14 +174,38 @@ export const askForja = createServerFn({ method: "POST" })
           }
           if (text) return { text, provider: slot.provider, model: slot.model };
         } catch (err) {
-          errors.push(`${slot.provider}: ${(err as Error).message}`);
+          const error = err as Error;
+          errors.push(
+            `${slot.provider}: ${error.name === "AbortError" ? `no respondió en ${PROVIDER_TIMEOUT_MS / 1000}s` : error.message}`,
+          );
         }
       }
       throw new Error(`Todos los proveedores fallaron:\n${errors.join("\n")}`);
     };
 
-    // 1) Specialists work in parallel, each starting on a different key/provider.
     const lastUser = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const receiver = await call(
+      `${SYSTEM}\n\n${RECEIVER_ROLE}\n${modeInstructions(data.mode)}`,
+      data.messages,
+      slots,
+      true,
+    );
+    const route = extractJson(receiver.text) as {
+      delegate?: unknown;
+      reply?: unknown;
+      edits?: unknown;
+    } | null;
+    if (!route || route.delegate !== true) {
+      return {
+        reply: typeof route?.reply === "string" ? route.reply : receiver.text,
+        edits: [],
+        provider: receiver.provider,
+        model: receiver.model,
+        team: [],
+      };
+    }
+
+    // The receiver decided that project work is needed: specialists now work in parallel.
     const team = pickTeam(lastUser);
     const notes = await Promise.all(
       team.map((agent, i) =>
@@ -177,7 +225,7 @@ export const askForja = createServerFn({ method: "POST" })
         done.map((n) => `--- ${n.agent.name} ---\n${n.text}`).join("\n\n")
       : "";
 
-    // 2) The lead integrates everything and returns the JSON with edits.
+    // The receiver returns as lead and integrates the specialists' notes.
     const lead = await call(
       `${SYSTEM}\n\n${LEAD_ROLE}\n${modeInstructions(data.mode)}${teamNotes}`,
       data.messages,

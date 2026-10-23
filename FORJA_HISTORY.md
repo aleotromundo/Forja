@@ -101,3 +101,13 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se agregó tolerancia ante `localStorage` bloqueado, lleno o corrupto para que el chat siga funcionando en memoria.
 - Auditoría visual local: sin overflow horizontal ni botones sin etiqueta en la vista inspeccionada.
 - Tests, TypeScript, lint y build pasaron.
+
+### Cambio 11 — Receptor principal y delegación condicional
+
+- Se cambió el pipeline de IA para que el primer llamado siempre lo haga el receptor principal.
+- El receptor decide mediante `delegate` si el pedido requiere trabajo sobre el proyecto.
+- Saludos, preguntas simples y conversación general terminan con una sola respuesta, sin `pickTeam` ni consultas paralelas de especialistas.
+- Solo cuando `delegate: true` se convocan especialistas en paralelo y luego el receptor integra sus aportes.
+- Cada proveedor tiene un timeout de 15 segundos; los errores indican qué proveedor no respondió y el sistema puede continuar con otra clave/proveedor.
+- Se mantienen las fases visibles y el contador de tiempo en el chat.
+- Tests, TypeScript, lint y build pasaron.

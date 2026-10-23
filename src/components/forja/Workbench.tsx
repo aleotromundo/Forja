@@ -81,6 +81,9 @@ export function Workbench() {
   const [lastProvider, setLastProvider] = useState<string>("");
   const [apiStatus, setApiStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [apiProviders, setApiProviders] = useState<string[]>([]);
+  const [requestPhase, setRequestPhase] = useState<
+    "idle" | "preparing" | "consulting" | "applying"
+  >("idle");
   const isMobile = useIsMobile();
   const [mobilePanel, setMobilePanel] = useState<"editor" | "explorer" | "chat">("editor");
   const [showExplorer, setShowExplorer] = useState(true);
@@ -252,6 +255,7 @@ export function Workbench() {
     const history: ChatMsg[] = [...messages, { role: "user", content: input }];
     setBusy(true);
     setApiStatus("connecting");
+    setRequestPhase("preparing");
     try {
       // Context: active file, open tabs, and any file path mentioned in the message.
       const wanted = new Set<string>();
@@ -268,6 +272,7 @@ export function Workbench() {
         );
       });
       setMessages(history);
+      setRequestPhase("consulting");
 
       const res = await ask({
         data: {
@@ -279,6 +284,7 @@ export function Workbench() {
         },
       });
       setApiStatus("connected");
+      setRequestPhase("applying");
       setLastProvider(`${res.provider} · ${res.model}`);
       setPreviewContext("");
 
@@ -383,6 +389,7 @@ export function Workbench() {
       ]);
     } catch (err) {
       setApiStatus("offline");
+      setRequestPhase("idle");
       setMessages((m) => [
         ...m,
         { role: "assistant", content: (err as Error).message, error: true },
@@ -390,6 +397,7 @@ export function Workbench() {
       return false;
     } finally {
       setBusy(false);
+      setRequestPhase("idle");
     }
     return true;
   };
@@ -663,6 +671,7 @@ export function Workbench() {
                 onEditMessage={editMessage}
                 apiStatus={apiStatus}
                 apiProviders={apiProviders}
+                requestPhase={requestPhase}
               />
             </div>
           </>

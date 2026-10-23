@@ -88,6 +88,7 @@ interface Props {
   onEditMessage: (index: number, content: string) => void;
   apiStatus: "connecting" | "connected" | "offline";
   apiProviders: string[];
+  requestPhase: "idle" | "preparing" | "consulting" | "applying";
 }
 
 export function ChatPanel({
@@ -104,6 +105,7 @@ export function ChatPanel({
   onEditMessage,
   apiStatus,
   apiProviders,
+  requestPhase,
 }: Props) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -114,6 +116,19 @@ export function ChatPanel({
   const [reading, setReading] = useState(false);
   const [mode, setMode] = useState<ChatMode>("plan");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!busy) {
+      setElapsed(0);
+      return;
+    }
+    const started = Date.now();
+    const tick = () => setElapsed(Math.floor((Date.now() - started) / 1000));
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [busy]);
 
   const dictation = useDictation((words) =>
     setText((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}${words}`),
@@ -344,7 +359,21 @@ export function ChatPanel({
         {busy && (
           <div className="flex items-center gap-2 text-muted-foreground">
             <span className="h-2 w-2 rounded-full bg-ember animate-forge" />{" "}
-            {mode === "plan" ? "El equipo está pensando…" : "El equipo está forjando cambios…"}
+            <span>
+              {requestPhase === "preparing"
+                ? "Preparando contexto…"
+                : requestPhase === "consulting"
+                  ? "Consultando proveedores…"
+                  : requestPhase === "applying"
+                    ? "Procesando respuesta…"
+                    : mode === "plan"
+                      ? "El equipo está pensando…"
+                      : "El equipo está forjando cambios…"}
+              {elapsed > 0 && ` ${elapsed}s`}
+              {elapsed >= 12 && requestPhase === "consulting" && (
+                <span className="text-xs"> · puede estar probando otra API</span>
+              )}
+            </span>
           </div>
         )}
         <div ref={end} />
