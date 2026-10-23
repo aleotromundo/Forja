@@ -176,7 +176,7 @@ export const askForja = createServerFn({ method: "POST" })
             }
             const models =
               slot.provider === "gemini"
-                ? [...new Set([slot.model, "gemini-3.6-flash", "gemini-2.5-flash-lite"])]
+                ? [...new Set([slot.model, "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"])]
                 : [slot.model];
             let res: Response | undefined;
             let model = slot.model;

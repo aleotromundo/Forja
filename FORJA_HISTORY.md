@@ -200,3 +200,12 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se agregó un presupuesto de 12 segundos por proveedor dentro de cada llamada, para que una cuenta saturada no recorra indefinidamente todas sus claves y modelos.
 - Se mantuvieron los fallbacks de modelo de Gemini y la rotación de claves.
 - Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 22 — Política final de Gemini gratuita y estable
+
+- Se concluyó que Flash, Flash-Lite y Pro describen familias de capacidad; el nivel gratuito depende del proyecto, cuota y billing, no solo del nombre.
+- Se mantuvo `gemini-3.5-flash-lite` como modelo Gemini principal por velocidad y nivel gratuito.
+- Se cambió el fallback automático desde `gemini-3.6-flash` a `gemini-3.1-flash-lite`, seguido de `gemini-2.5-flash-lite`, para evitar un fallback más pesado o potencialmente pago.
+- Se excluyeron de la rotación automática Gemini Pro y previews retiradas. Pro queda disponible solamente mediante configuración manual.
+- Se documentó que las cuotas se aplican por proyecto y que varias claves del mismo proyecto no multiplican automáticamente el límite.
+- Tests, TypeScript, lint y build pasaron: 32 tests.
