@@ -37,6 +37,11 @@ describe("ai provider rotation", () => {
     expect(slots.every((slot) => slot.provider === "gemini")).toBe(true);
   });
 
+  it("accepts independently named numbered keys", () => {
+    const slots = buildSlots({ GEMINI_API_KEY_2: "g2", GEMINI_API_KEY_1: "g1" });
+    expect(slots.map((slot) => slot.key)).toEqual(["g1", "g2"]);
+  });
+
   it("extracts JSON wrapped in code fences", () => {
     expect(extractJson('ok ```json\n{"reply":"hi"}\n```')).toEqual({ reply: "hi" });
   });

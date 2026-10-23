@@ -49,6 +49,15 @@ export function parseKeys(...values: (string | undefined)[]): string[] {
 
 type Env = Record<string, string | undefined>;
 
+function keysForProvider(env: Env, provider: ProviderName) {
+  const up = provider.toUpperCase();
+  const numbered = Object.entries(env)
+    .filter(([name, value]) => value && new RegExp(`^${up}_API_KEY_\\d+$`).test(name))
+    .sort(([a], [b]) => Number(a.split("_").pop()) - Number(b.split("_").pop()))
+    .map(([, value]) => value);
+  return parseKeys(env[`${up}_API_KEYS`], env[`${up}_API_KEY`], ...numbered);
+}
+
 /**
  * Build slots interleaved across providers (groq#1, gemini#1, openrouter#1, groq#2, ...)
  * so that load spreads over every free provider. Lovable AI is always last (fallback).
@@ -56,7 +65,7 @@ type Env = Record<string, string | undefined>;
 export function buildSlots(env: Env): ProviderSlot[] {
   const groups: ProviderSlot[][] = (["groq", "gemini", "openrouter"] as const).map((p) => {
     const up = p.toUpperCase();
-    return parseKeys(env[`${up}_API_KEYS`], env[`${up}_API_KEY`]).map((key) => ({
+    return keysForProvider(env, p).map((key) => ({
       provider: p,
       key,
       url: DEFAULTS[p].url,

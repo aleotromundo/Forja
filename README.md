@@ -41,13 +41,17 @@ pnpm run build
 
 ## Configuración de IA
 
-Forja lee las claves desde variables de entorno. Cada variable acepta claves separadas por comas para permitir rotación:
+Forja lee las claves desde variables de entorno. Cada variable acepta claves separadas por comas para permitir rotación. Para agregar una clave desde Vercel sin editar una variable secreta existente, también se pueden usar nombres independientes numerados:
 
 ```bash
 GROQ_API_KEYS=...
 GEMINI_API_KEYS=...
 OPENROUTER_API_KEYS=...
+GEMINI_API_KEY_1=...
+GEMINI_API_KEY_2=...
 ```
+
+Las formas singular (`GEMINI_API_KEY`), plural (`GEMINI_API_KEYS`) y numerada (`GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.) se combinan y se deduplican. Las claves numeradas se ordenan por número y cada una participa como un slot independiente de rotación.
 
 Las llamadas de IA pasan por `src/lib/ai.functions.ts`. Las claves permanecen del lado del servidor; el navegador envía solamente el contexto que el usuario selecciona para la conversación.
 

@@ -149,3 +149,12 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - El parser ya acepta comas, espacios, punto y coma y saltos de línea, combina ambas variables y elimina duplicados.
 - Se agregó un test específico con `GEMINI_API_KEY=g1, g2,g3`: genera tres slots Gemini independientes para rotación y fallback.
 - Tests, TypeScript, lint y build pasaron: 29 tests.
+
+### Cambio 16 — Claves numeradas para Vercel
+
+- Se documentó que editar una variable secreta en Vercel reemplaza su valor completo; no es una operación de agregar al final.
+- Se agregó soporte para variables independientes numeradas, como `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2` y `GEMINI_API_KEY_3`.
+- Las variables numeradas se ordenan, se combinan con las formas singular y plural existentes y se deduplican.
+- Así se puede agregar una clave nueva en Vercel sin volver a abrir ni reescribir la variable que ya contiene otras claves.
+- Se actualizó README y AGENTS con el formato recomendado.
+- Tests, TypeScript, lint y build pasaron: 30 tests.

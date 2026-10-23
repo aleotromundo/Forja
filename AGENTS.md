@@ -10,7 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Forja rules
-- AI calls go through `askForja` (src/lib/ai.functions.ts); provider rotation logic lives in pure `src/lib/ai-providers.ts` (tested) so keys come only from env vars (`GROQ_API_KEYS`, `GEMINI_API_KEYS`, `OPENROUTER_API_KEYS`, comma-separated; Lovable AI is last fallback).
+- AI calls go through `askForja` (src/lib/ai.functions.ts); provider rotation logic lives in pure `src/lib/ai-providers.ts` (tested) so keys come only from env vars (`GROQ_API_KEYS`, `GEMINI_API_KEYS`, `OPENROUTER_API_KEYS`, comma-separated, or numbered forms such as `GEMINI_API_KEY_1`; Lovable AI is last fallback).
 - Local files are accessed only in the browser via File System Access API (`src/lib/fs.ts`); the server never sees the user's folder except file contents sent as AI context.
 - The IDE renders inside `<ClientOnly>` because Monaco and the file APIs are browser-only.
 - Preview HTML is parsed with source offsets and rendered in an opaque-origin sandbox with only the Forja inspection bridge; this keeps local text edits precise and project scripts isolated from IDE permissions.
