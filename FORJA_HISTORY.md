@@ -251,3 +251,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Los errores de autenticación y permisos siguen marcándose en la variable exacta y pasan al siguiente slot sin reintentos inútiles.
 - La verificación de edits también usa esta política y no queda bloqueada por un modelo Gemini inválido.
 - Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 28 — Modelos Gemini confirmados por el usuario
+
+- Se dejó de inferir o juzgar la vigencia de los modelos Gemini a partir de documentación externa.
+- Se configuró exactamente la lista comprobada en el chat antiguo del usuario, en este orden: `gemini-3-flash-preview`, `gemini-3-pro`, `gemini-3-flash-8b`, `gemini-3-flash`, `gemini-1.5-flash`.
+- `gemini-3-flash-preview` quedó como default de Gemini; la variable `GEMINI_MODEL` de Vercel, si existe, continúa teniendo prioridad.
+- Los errores 400/404/429 y transitorios avanzan por esta lista exacta antes de probar otra clave o proveedor.
+- Tests, TypeScript, lint y build pasaron: 32 tests.

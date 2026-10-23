@@ -53,7 +53,7 @@ GEMINI_API_KEY_2=...
 
 Las formas singular (`GEMINI_API_KEY`), plural (`GEMINI_API_KEYS`) y numerada (`GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.) se combinan y se deduplican. Las claves numeradas se ordenan por número y cada una participa como un slot independiente de rotación.
 
-Por defecto, Forja prioriza modelos rápidos para código: Groq usa `openai/gpt-oss-20b`, Gemini usa `gemini-3.5-flash-lite` y OpenRouter usa `openai/gpt-oss-20b`. Se pueden reemplazar con `GROQ_MODEL`, `GEMINI_MODEL` y `OPENROUTER_MODEL`. Si Gemini devuelve 503, Forja prueba `gemini-3.1-flash-lite` y `gemini-2.5-flash-lite` antes de pasar a otra clave o proveedor. La rotación automática no usa Gemini Pro ni previews retiradas; Pro queda reservado para una configuración manual cuando haga falta más razonamiento.
+Por defecto, Forja prioriza modelos rápidos para código: Groq usa `openai/gpt-oss-20b`, Gemini usa `gemini-3-flash-preview` y OpenRouter usa `openai/gpt-oss-20b`. Se pueden reemplazar con `GROQ_MODEL`, `GEMINI_MODEL` y `OPENROUTER_MODEL`. Si Gemini falla, Forja prueba exactamente esta lista confirmada para el proyecto: `gemini-3-flash-preview`, `gemini-3-pro`, `gemini-3-flash-8b`, `gemini-3-flash` y `gemini-1.5-flash`, antes de pasar a otra clave o proveedor.
 
 Las llamadas de IA pasan por `src/lib/ai.functions.ts`. Las claves permanecen del lado del servidor; el navegador envía solamente el contexto que el usuario selecciona para la conversación.
 
