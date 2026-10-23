@@ -43,10 +43,31 @@ import { PreviewPane } from "./PreviewPane";
 import { Button } from "@/components/ui/button";
 import { EditHistory, type HistoryEntry } from "@/lib/edit-history";
 import { collectChatContext, type ChatExtras } from "@/lib/chat-context";
-import { loadChatHistory, saveChatHistory } from "@/lib/chat-persistence";
+import {
+  chatSessionTitle,
+  createChatSession,
+  loadChatSessions,
+  saveChatSessions,
+  type ChatSession,
+} from "@/lib/chat-persistence";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 type Snapshot = { path: string; before: string | null }[];
+
+function lineDelta(before: string, after: string) {
+  const oldLines = before ? before.split("\n") : [];
+  const newLines = after ? after.split("\n") : [];
+  let start = 0;
+  while (start < oldLines.length && start < newLines.length && oldLines[start] === newLines[start])
+    start++;
+  let oldEnd = oldLines.length;
+  let newEnd = newLines.length;
+  while (oldEnd > start && newEnd > start && oldLines[oldEnd - 1] === newLines[newEnd - 1]) {
+    oldEnd--;
+    newEnd--;
+  }
+  return { added: newEnd - start, removed: oldEnd - start };
+}
 
 function useDrag(initial: number, min: number, max: number, invert = false) {
   const [w, setW] = useState(initial);
@@ -76,6 +97,8 @@ export function Workbench() {
   const [active, setActive] = useState<string | null>(null);
   const [reveal, setReveal] = useState<RevealRequest | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [changed, setChanged] = useState<Set<string>>(new Set());
   const [lastProvider, setLastProvider] = useState<string>("");
@@ -142,8 +165,24 @@ export function Workbench() {
   }, [getStatus]);
 
   useEffect(() => {
-    if (root?.name) saveChatHistory(root.name, messages);
-  }, [root?.name, messages]);
+    if (root?.name && sessions.length) saveChatSessions(root.name, sessions);
+  }, [root?.name, sessions]);
+
+  useEffect(() => {
+    if (!activeSessionId) return;
+    setSessions((current) =>
+      current.map((session) =>
+        session.id === activeSessionId
+          ? {
+              ...session,
+              title: session.title === "Nueva sesión" ? chatSessionTitle(messages) : session.title,
+              updatedAt: messages.length ? new Date().toISOString() : session.updatedAt,
+              messages,
+            }
+          : session,
+      ),
+    );
+  }, [activeSessionId, messages]);
 
   const refresh = useCallback(
     async (r = root) => {
@@ -157,7 +196,12 @@ export function Workbench() {
       const h = await pickFolder();
       editHistory.current.clear();
       updateHistory((v) => v + 1);
-      setMessages(loadChatHistory(h.name) as ChatMsg[]);
+      const restored = loadChatSessions(h.name);
+      const available = restored.length ? restored : [createChatSession()];
+      const latest = [...available].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]!;
+      setSessions(available);
+      setActiveSessionId(latest.id);
+      setMessages(latest.messages as ChatMsg[]);
       setRoot(h);
       setTabs([]);
       setActive(null);
@@ -167,6 +211,23 @@ export function Workbench() {
     } catch (e) {
       if ((e as Error).name !== "AbortError") toast.error("No se pudo abrir la carpeta");
     }
+  };
+
+  const newChat = () => {
+    const session = createChatSession();
+    setSessions((current) => [...current, session]);
+    setActiveSessionId(session.id);
+    setMessages([]);
+    setPreviewContext("");
+    if (isMobile) setMobilePanel("chat");
+  };
+
+  const selectChat = (id: string) => {
+    const session = sessions.find((item) => item.id === id);
+    if (!session) return;
+    setActiveSessionId(id);
+    setMessages(session.messages as ChatMsg[]);
+    setPreviewContext("");
   };
 
   const openFile = useCallback(
@@ -208,11 +269,33 @@ export function Workbench() {
       if (!root) return;
       const t = tabs.find((x) => x.path === path);
       if (!t) return;
+      const delta = lineDelta(t.saved, t.content);
       await writeFile(root, path, t.content);
       setTabs((ts) => ts.map((x) => (x.path === path ? { ...x, saved: x.content } : x)));
+      if (activeSessionId && (delta.added > 0 || delta.removed > 0)) {
+        const updatedAt = new Date().toISOString();
+        setSessions((current) =>
+          current.map((session) =>
+            session.id === activeSessionId
+              ? {
+                  ...session,
+                  updatedAt,
+                  files: {
+                    ...session.files,
+                    [path]: {
+                      added: (session.files[path]?.added ?? 0) + delta.added,
+                      removed: (session.files[path]?.removed ?? 0) + delta.removed,
+                      updatedAt,
+                    },
+                  },
+                }
+              : session,
+          ),
+        );
+      }
       toast.success(`Guardado ${path.split("/").pop()}`);
     },
-    [root, tabs],
+    [activeSessionId, root, tabs],
   );
 
   const closeTab = (path: string) => {
@@ -318,6 +401,26 @@ export function Workbench() {
         } else {
           await writeFile(root, e.path, e.content ?? "");
         }
+      }
+      if (activeSessionId && edits.length) {
+        const updatedAt = new Date().toISOString();
+        setSessions((current) =>
+          current.map((session) => {
+            if (session.id !== activeSessionId) return session;
+            const files = { ...session.files };
+            edits.forEach((edit) => {
+              const before = snap.find((item) => item.path === edit.path)?.before ?? "";
+              const delta = lineDelta(before, edit.action === "delete" ? "" : (edit.content ?? ""));
+              const previous = files[edit.path] ?? { added: 0, removed: 0, updatedAt };
+              files[edit.path] = {
+                added: previous.added + delta.added,
+                removed: previous.removed + delta.removed,
+                updatedAt,
+              };
+            });
+            return { ...session, files, updatedAt };
+          }),
+        );
       }
       const idx = history.length;
       if (snap.length) {
@@ -679,6 +782,10 @@ export function Workbench() {
                 apiStatus={apiStatus}
                 apiProviders={apiProviders}
                 requestPhase={requestPhase}
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                onNewChat={newChat}
+                onSelectChat={selectChat}
               />
             </div>
           </>

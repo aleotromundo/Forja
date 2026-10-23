@@ -123,3 +123,14 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se agregó un test para impedir que el modelo retirado vuelva a usarse.
 - La documentación oficial de Groq indica que `llama-3.3-70b-versatile` fue retirado para planes gratuitos/desarrollador el 16/08/2026; Gemini y OpenRouter también documentan que modelos, límites y proveedores pueden fallar aunque la clave exista.
 - Tests, TypeScript, lint y build pasaron: 26 tests.
+
+### Cambio 13 — Sesiones de chat estilo editor
+
+- Se reemplazó el historial único por sesiones persistidas por proyecto.
+- Al abrir una carpeta se restaura automáticamente la sesión más reciente.
+- Cada sesión recibe un nombre derivado del primer mensaje y conserva fecha de creación y última actividad.
+- Se agregó selector de sesiones y botón `Nuevo chat` en la cabecera del chat.
+- Cada sesión muestra archivos modificados, líneas agregadas en verde, líneas eliminadas en rojo y tiempo relativo de actualización.
+- Se contabilizan cambios de IA y también cambios manuales al guardar archivos.
+- Se migró el historial anterior de `localStorage` a una primera sesión sin perder mensajes.
+- Se agregaron tests de sesiones, migración y estadísticas: 28 tests pasan.

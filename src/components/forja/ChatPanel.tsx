@@ -10,6 +10,8 @@ import {
   Paperclip,
   FolderOpen,
   Search,
+  MessagesSquare,
+  Plus,
   Pencil,
   Copy,
   Check,
@@ -22,6 +24,7 @@ import { isTextFile } from "@/lib/fs";
 import type { ChatAttachment, ChatExtras } from "@/lib/chat-context";
 import { useDictation } from "./useDictation";
 import type { ChatMode } from "@/lib/agents";
+import type { ChatSession } from "@/lib/chat-persistence";
 
 /** Matches "ruta/archivo.ext" or "ruta/archivo.ext:linea" inside a message. */
 const CODE_REF = /([\w@./-]+\.[A-Za-z0-9]+)(?::(\d+))?/g;
@@ -89,6 +92,19 @@ interface Props {
   apiStatus: "connecting" | "connected" | "offline";
   apiProviders: string[];
   requestPhase: "idle" | "preparing" | "consulting" | "applying";
+  sessions: ChatSession[];
+  activeSessionId: string | null;
+  onNewChat: () => void;
+  onSelectChat: (id: string) => void;
+}
+
+function relativeDate(value: string) {
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (seconds < 60) return "hace unos segundos";
+  if (seconds < 3600) return `hace ${Math.floor(seconds / 60)} min`;
+  if (seconds < 86400) return `hace ${Math.floor(seconds / 3600)} h`;
+  if (seconds < 604800) return `hace ${Math.floor(seconds / 86400)} d`;
+  return new Date(value).toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
 export function ChatPanel({
@@ -106,6 +122,10 @@ export function ChatPanel({
   apiStatus,
   apiProviders,
   requestPhase,
+  sessions,
+  activeSessionId,
+  onNewChat,
+  onSelectChat,
 }: Props) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -268,6 +288,98 @@ export function ChatPanel({
             </button>
           ))}
         </div>
+      </div>
+      <div className="flex min-w-0 items-center gap-1 border-b px-2 py-1">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-w-0 flex-1 justify-start gap-1.5 px-1.5 text-xs"
+              title="Cambiar sesión"
+            >
+              <MessagesSquare className="h-3.5 w-3.5 shrink-0 text-ember" />
+              <span className="truncate">
+                {sessions.find((session) => session.id === activeSessionId)?.title ??
+                  "Nueva sesión"}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80 max-w-[calc(100vw-24px)] p-1">
+            <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Sesiones de {projectName ?? "este proyecto"}
+            </div>
+            <div className="max-h-72 overflow-auto">
+              {[...sessions]
+                .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+                .map((session) => {
+                  const fileEntries = Object.entries(session.files).sort((a, b) =>
+                    b[1].updatedAt.localeCompare(a[1].updatedAt),
+                  );
+                  const added = fileEntries.reduce((sum, [, file]) => sum + file.added, 0);
+                  const removed = fileEntries.reduce((sum, [, file]) => sum + file.removed, 0);
+                  return (
+                    <button
+                      key={session.id}
+                      type="button"
+                      onClick={() => onSelectChat(session.id)}
+                      className={cn(
+                        "flex w-full min-w-0 flex-col items-start rounded px-2 py-2 text-left hover:bg-accent",
+                        session.id === activeSessionId && "bg-accent/60",
+                      )}
+                    >
+                      <span className="w-full truncate text-xs font-medium">{session.title}</span>
+                      <span className="mt-1 flex w-full items-center gap-2 text-[10px] text-muted-foreground">
+                        <span>{relativeDate(session.updatedAt)}</span>
+                        {fileEntries.length > 0 && <span>{fileEntries.length} archivos</span>}
+                        {added > 0 && <span className="text-added">+{added}</span>}
+                        {removed > 0 && <span className="text-destructive">−{removed}</span>}
+                      </span>
+                      {fileEntries.length > 0 && (
+                        <span className="mt-1 w-full truncate font-mono text-[10px] text-muted-foreground">
+                          {fileEntries
+                            .slice(0, 3)
+                            .map(([path, file]) => `${path} (+${file.added}/−${file.removed})`)
+                            .join(" · ")}
+                          {fileEntries.length > 3 && " · …"}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+            </div>
+          </PopoverContent>
+        </Popover>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          aria-label="Nuevo chat"
+          title="Iniciar un nuevo chat"
+          onClick={onNewChat}
+        >
+          <Plus />
+        </Button>
+        {activeSessionId && (
+          <span className="hidden shrink-0 items-center gap-1 text-[10px] sm:flex">
+            {(() => {
+              const files = Object.values(
+                sessions.find((s) => s.id === activeSessionId)?.files ?? {},
+              );
+              const added = files.reduce((sum, file) => sum + file.added, 0);
+              const removed = files.reduce((sum, file) => sum + file.removed, 0);
+              return (
+                <>
+                  {added > 0 && <span className="text-added">+{added}</span>}
+                  {removed > 0 && <span className="text-destructive">−{removed}</span>}
+                  {files.length > 0 && (
+                    <span className="text-muted-foreground">· {files.length} arch.</span>
+                  )}
+                </>
+              );
+            })()}
+          </span>
+        )}
       </div>
       <div className="flex-1 space-y-4 overflow-auto px-3 py-2 text-[13px]">
         {messages.length === 0 && (
