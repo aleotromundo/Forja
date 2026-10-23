@@ -68,12 +68,12 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function enabledSlots(env: Record<string, string | undefined>) {
   const slots = buildSlots(env);
-  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,gemini,lovable")
+  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,xai,gemini,lovable")
     .split(/[\s,;]+/)
-    .filter((provider): provider is "groq" | "gemini" | "openrouter" | "lovable" =>
-      ["groq", "gemini", "openrouter", "lovable"].includes(provider as never),
+    .filter((provider): provider is "groq" | "xai" | "gemini" | "openrouter" | "lovable" =>
+      ["groq", "xai", "gemini", "openrouter", "lovable"].includes(provider as never),
     );
-  const providers = allowed.length ? allowed : ["groq", "gemini", "lovable"];
+  const providers = allowed.length ? allowed : ["groq", "xai", "gemini", "lovable"];
   const active = slots.filter((slot) => providers.includes(slot.provider));
   // A stale or incomplete provider selector must never disable every configured key.
   return active.length ? active : slots;

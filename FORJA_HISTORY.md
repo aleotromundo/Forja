@@ -287,3 +287,7 @@ Se corrigió un caso de desconexión total: si `FORJA_ENABLED_PROVIDERS` apunta 
 Se activó el orden recomendado con Groq primero, Gemini como segundo proveedor y Lovable como respaldo si el entorno lo ofrece. Para Gemini se consolidan las instrucciones y el contexto en un único mensaje `system`, se eliminan mensajes `system` consecutivos y se omite `temperature` para evitar incompatibilidades del adaptador OpenAI con modelos de razonamiento.
 
 Un error 400 de Gemini queda aislado por la rotación y no interrumpe el intento con los demás proveedores.
+
+### Cambio 34 — Integración de la clave xAI/Grok existente
+
+Se agregó xAI como proveedor independiente para aprovechar la clave `xai-...` que ya tenía el usuario. Forja la lee desde `XAI_API_KEY`, usa `https://api.x.ai/v1/chat/completions` y la coloca después de Groq y antes de Gemini. No se confunde más una clave xAI con una clave Groq; el diagnóstico identifica cada proveedor por separado.
