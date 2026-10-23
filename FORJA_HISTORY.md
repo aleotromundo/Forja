@@ -225,3 +225,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Forja continúa automáticamente con la siguiente clave/modelo/proveedor en lugar de detenerse en el primer fallo.
 - Las claves numeradas y las claves múltiples dentro de una variable quedaron identificadas de forma separada en el diagnóstico.
 - Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 25 — Modo Modificar que no pierde los edits
+
+- Se detectó que el receptor podía interpretar un pedido de cambio como una explicación y devolver código dentro del chat, aunque el usuario estuviera en modo Modificar.
+- Se reforzó el rol del receptor: en modo Modificar, verbos como modificar, cambiar, reemplazar, agregar, corregir o implementar obligan a entrar al flujo de edits.
+- Se agregó una salvaguarda server-side: si el modo es Modificar y el mensaje contiene una intención clara de edición, Forja delega aunque el modelo haya olvidado marcar `delegate: true`.
+- Así el líder debe devolver edits estructurados para que Workbench pueda mostrar la confirmación y escribir los archivos, en vez de limitarse a imprimir código.
+- Tests, TypeScript, lint y build pasaron: 32 tests.

@@ -64,6 +64,9 @@ function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const EDIT_REQUEST =
+  /\b(modific[aá]|cambi[aá]|reemplaz[aá]|agreg[aá]|añad[ií]|cre[aá]|elimin[aá]|borr[aá]|correg[ií]|arregl[aá]|implement[aá]|hac[eé]|actualiz[aá]|refactoriz[aá]|aplic[aá])\b/i;
+
 function naturalizeReply(text: string) {
   return text
     .split(/(```[\s\S]*?```)/g)
@@ -115,6 +118,7 @@ const RECEIVER_ROLE = `ROL: sos el receptor principal de Forja y el único inter
 Primero decidí si el pedido necesita trabajo real sobre el proyecto.
 Poné "delegate": false para saludos, preguntas generales, explicaciones, ideas o conversaciones que no requieren analizar varios archivos.
 Poné "delegate": true solamente si hace falta inspeccionar o modificar el proyecto, preparar un plan técnico con contexto del código o resolver un trabajo complejo.
+En MODO MODIFICAR, si el usuario pide modificar, cambiar, reemplazar, agregar, eliminar, corregir, implementar o aplicar algo en el código, poné siempre "delegate": true. No devuelvas código para copiar en "reply": el líder debe devolver edits para que Forja pueda aplicarlos.
 Cuando "delegate" sea false, respondé directamente y no pidas especialistas. Cuando sea true, no inventes una respuesta final todavía: indicá brevemente que vas a delegar el trabajo.`;
 
 export const askForja = createServerFn({ method: "POST" })
@@ -296,7 +300,8 @@ export const askForja = createServerFn({ method: "POST" })
       reply?: unknown;
       edits?: unknown;
     } | null;
-    if (!route || route.delegate !== true) {
+    const editIntent = data.mode === "edit" && EDIT_REQUEST.test(lastUser);
+    if (!route || (route.delegate !== true && !editIntent)) {
       return {
         reply: naturalizeReply(typeof route?.reply === "string" ? route.reply : receiver.text),
         edits: [],
