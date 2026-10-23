@@ -134,3 +134,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se contabilizan cambios de IA y también cambios manuales al guardar archivos.
 - Se migró el historial anterior de `localStorage` a una primera sesión sin perder mensajes.
 - Se agregaron tests de sesiones, migración y estadísticas: 28 tests pasan.
+
+### Cambio 14 — Reintento de saturación 503/429
+
+- Se confirmó que el error observado de Gemini era HTTP 503: el proveedor recibió la solicitud pero el modelo estaba temporalmente con alta demanda.
+- Se agregó un reintento automático con espera breve para 429, 500, 502, 503 y 504 antes de pasar al siguiente proveedor.
+- Los errores ahora distinguen `alta demanda temporal`, `límite de solicitudes o cuota` y `respuesta de error`.
+- No se exponen claves ni se modifica la información sensible de las variables de entorno.
+- Tests, TypeScript, lint y build pasaron: 28 tests.

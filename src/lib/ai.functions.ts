@@ -49,6 +49,7 @@ export interface AiStatus {
 }
 
 const PROVIDER_TIMEOUT_MS = 15_000;
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
 function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -59,6 +60,8 @@ function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
     operation.then(resolve, reject).finally(() => clearTimeout(timer));
   });
 }
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const getAiStatus = createServerFn({ method: "GET" }).handler((): AiStatus => {
   const slots = buildSlots(process.env as Record<string, string | undefined>);
@@ -145,25 +148,37 @@ export const askForja = createServerFn({ method: "POST" })
               headers["HTTP-Referer"] = "https://forja.app";
               headers["X-Title"] = "Forja";
             }
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
-            const res = await fetch(slot.url, {
-              method: "POST",
-              headers,
-              signal: controller.signal,
-              body: JSON.stringify({
-                model: slot.model,
-                messages: [
-                  { role: "system", content: system },
-                  { role: "system", content: context },
-                  ...convo,
-                ],
-                temperature: json ? 0.2 : 0.4,
-              }),
-            }).finally(() => clearTimeout(timer));
+            let res: Response | undefined;
+            for (let attempt = 0; attempt < 2; attempt++) {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+              res = await fetch(slot.url, {
+                method: "POST",
+                headers,
+                signal: controller.signal,
+                body: JSON.stringify({
+                  model: slot.model,
+                  messages: [
+                    { role: "system", content: system },
+                    { role: "system", content: context },
+                    ...convo,
+                  ],
+                  temperature: json ? 0.2 : 0.4,
+                }),
+              }).finally(() => clearTimeout(timer));
+              if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === 1) break;
+              await wait(700);
+            }
+            if (!res) throw new Error(`${slot.provider} no devolvió una respuesta`);
             if (!res.ok) {
               const body = await res.text();
-              errors.push(`${slot.provider} [${res.status}]: ${body.slice(0, 200)}`);
+              const reason =
+                res.status === 503
+                  ? "alta demanda temporal"
+                  : res.status === 429
+                    ? "límite de solicitudes o cuota"
+                    : "respuesta de error";
+              errors.push(`${slot.provider} [${res.status} · ${reason}]: ${body.slice(0, 200)}`);
               console.error(
                 `AI provider failed ${slot.provider} [${res.status}]: ${body.slice(0, 500)}`,
               );
