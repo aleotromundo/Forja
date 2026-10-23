@@ -209,3 +209,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se excluyeron de la rotación automática Gemini Pro y previews retiradas. Pro queda disponible solamente mediante configuración manual.
 - Se documentó que las cuotas se aplican por proyecto y que varias claves del mismo proyecto no multiplican automáticamente el límite.
 - Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 23 — Delegación sin dependencia inicial de Gemini
+
+- Se reprodujo el problema informado: el receptor podía responder rápido por Groq, pero los especialistas se llamaban con `rotateSlots`, lo que hacía que empezaran por Gemini.
+- Se cambió cada llamada de especialista para usar `prioritizeSlots`, de modo que también empiece por Groq y solo use Gemini como fallback.
+- Se limitó el equipo delegado a un máximo de dos especialistas paralelos para reducir concurrencia, cuota y puntos de bloqueo.
+- El líder continúa usando el mismo orden: Groq, Gemini y OpenRouter.
+- Tests, TypeScript, lint y build pasaron: 32 tests.

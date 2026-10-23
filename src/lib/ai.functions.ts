@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateResponse } from "@lovable.dev/ai-gateway";
-import { buildSlots, extractJson, prioritizeSlots, rotateSlots } from "./ai-providers";
+import { buildSlots, extractJson, prioritizeSlots } from "./ai-providers";
 import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
 import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_CHARS, MAX_CONTEXT_FILES } from "./chat-context";
 import { isSafeRelativePath } from "./paths";
@@ -305,13 +305,13 @@ export const askForja = createServerFn({ method: "POST" })
     }
 
     // The receiver decided that project work is needed: specialists now work in parallel.
-    const team = pickTeam(lastUser);
+    const team = pickTeam(lastUser, 2);
     const notes = await Promise.all(
-      team.map((agent, i) =>
+      team.map((agent) =>
         call(
           specialistPrompt(agent, data.mode),
           data.messages.slice(-6),
-          rotateSlots(slots, i + 1),
+          prioritizeSlots(slots),
           false,
         )
           .then((r) => ({ agent, text: r.text.slice(0, 4000) }))
