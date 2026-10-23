@@ -273,3 +273,7 @@ Tests, TypeScript, lint y build pasaron: 32 tests.
 Se agregó `FORJA_ENABLED_PROVIDERS`. Si no está definida, Forja activa únicamente Groq, sin borrar ni modificar ninguna variable o clave de Gemini. La variable puede cambiarse luego a `groq,gemini` cuando la integración de Gemini haya sido probada de forma independiente.
 
 El indicador de estado del chat también refleja solamente los proveedores activos, evitando que Gemini aparezca como disponible si está temporalmente aislado.
+
+### Cambio 31 — Restauración del fallback operativo anterior
+
+Se confirmó que el deployment anterior podía responder mediante `LOVABLE_API_KEY`, aunque la interfaz lo mostrara como una respuesta del equipo. Se restauró ese comportamiento sin volver al repositorio anterior: Groq queda primero cuando existe y Lovable vuelve a ser respaldo automático. Gemini continúa aislado hasta validar su integración.

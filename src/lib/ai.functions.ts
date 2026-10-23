@@ -67,12 +67,12 @@ function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function enabledSlots(env: Record<string, string | undefined>) {
-  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq")
+  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,lovable")
     .split(/[\s,;]+/)
     .filter((provider): provider is "groq" | "gemini" | "openrouter" | "lovable" =>
       ["groq", "gemini", "openrouter", "lovable"].includes(provider as never),
     );
-  const providers = allowed.length ? allowed : ["groq"];
+  const providers = allowed.length ? allowed : ["groq", "lovable"];
   return buildSlots(env).filter((slot) => providers.includes(slot.provider));
 }
 
