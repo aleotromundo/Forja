@@ -16,11 +16,11 @@ const DEFAULTS: Record<ProviderName, { url: string; model: string }> = {
   },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: "gemini-3.8-flash",
+    model: "gemini-3.5-flash-lite",
   },
   openrouter: {
     url: "https://openrouter.ai/api/v1/chat/completions",
-    model: "meta-llama/llama-3.3-70b-instruct:free",
+    model: "openai/gpt-oss-20b",
   },
   lovable: {
     url: "https://ai.gateway.lovable.dev/v1/chat/completions",

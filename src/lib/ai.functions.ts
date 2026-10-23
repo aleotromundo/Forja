@@ -105,7 +105,7 @@ export const askForja = createServerFn({ method: "POST" })
       );
     }
 
-    const context =
+    let context =
       `ARCHIVOS DEL PROYECTO:\n${data.tree.join("\n")}\n\n` +
       (data.activePath ? `ARCHIVO ACTIVO: ${data.activePath}\n\n` : "") +
       data.files
@@ -150,7 +150,7 @@ export const askForja = createServerFn({ method: "POST" })
             }
             const models =
               slot.provider === "gemini"
-                ? [...new Set([slot.model, "gemini-3.6-flash", "gemini-2.5-flash"])]
+                ? [...new Set([slot.model, "gemini-3.6-flash", "gemini-2.5-flash-lite"])]
                 : [slot.model];
             let res: Response | undefined;
             let model = slot.model;
@@ -209,6 +209,52 @@ export const askForja = createServerFn({ method: "POST" })
     };
 
     const lastUser = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const requestsWebSearch =
+      /\b(busca|buscá|internet|web|online|documentación actual|actualizado|actualizada)\b/i.test(
+        lastUser,
+      );
+    if (requestsWebSearch) {
+      const webSlot = slots.find(
+        (slot) => slot.provider === "groq" && slot.model === "openai/gpt-oss-20b",
+      );
+      if (webSlot) {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+          const webResponse = await fetch(webSlot.url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${webSlot.key}`,
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+              model: webSlot.model,
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "Buscá en Internet lo necesario para responder la consulta. Devolvé un resumen breve con las fuentes o URLs relevantes.",
+                },
+                { role: "user", content: lastUser },
+              ],
+              temperature: 0.2,
+              tool_choice: "required",
+              tools: [{ type: "browser_search" }],
+            }),
+          }).finally(() => clearTimeout(timer));
+          if (webResponse.ok) {
+            const result = (await webResponse.json()) as {
+              choices?: { message?: { content?: string } }[];
+            };
+            const webText = result.choices?.[0]?.message?.content;
+            if (webText) context += `\n\nRESULTADO DE BÚSQUEDA WEB:\n${webText.slice(0, 12_000)}`;
+          }
+        } catch {
+          // The code task can continue with local project context if search is unavailable.
+        }
+      }
+    }
     const receiver = await call(
       `${SYSTEM}\n\n${RECEIVER_ROLE}\n${modeInstructions(data.mode)}`,
       data.messages,

@@ -165,3 +165,13 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Ante un 503 de Gemini, Forja ahora reintenta brevemente y prueba modelos alternativos (`gemini-3.6-flash` y `gemini-2.5-flash`) antes de pasar a otra clave o proveedor.
 - La respuesta informa el modelo que finalmente respondió cuando el fallback tiene éxito.
 - Tests, TypeScript, lint y build pasaron: 30 tests.
+
+### Cambio 18 — Perfil rápido de modelos y búsqueda web opcional
+
+- Se configuró como default rápido Groq `openai/gpt-oss-20b`, con aproximadamente 1000 tokens/s según Groq.
+- Se cambió Gemini default a `gemini-3.5-flash-lite`, orientado por Google a alta velocidad y alto volumen.
+- Se cambió OpenRouter default a `openai/gpt-oss-20b` y se mantienen los overrides `GROQ_MODEL`, `GEMINI_MODEL` y `OPENROUTER_MODEL`.
+- El fallback Gemini quedó en `gemini-3.6-flash` y `gemini-2.5-flash-lite`.
+- Se agregó búsqueda web opcional mediante el browser search nativo de Groq cuando el usuario pide explícitamente buscar en Internet, sin agregar latencia a consultas normales.
+- Se mantuvo el receptor único para saludos, preguntas y cambios simples; los especialistas solo se convocan cuando el receptor decide que el pedido necesita trabajo real.
+- Tests, TypeScript, lint y build pasaron: 31 tests.

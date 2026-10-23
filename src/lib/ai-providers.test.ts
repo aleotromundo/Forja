@@ -42,6 +42,15 @@ describe("ai provider rotation", () => {
     expect(slots.map((slot) => slot.key)).toEqual(["g1", "g2"]);
   });
 
+  it("uses fast coding defaults across providers", () => {
+    const slots = buildSlots({ GROQ_API_KEY: "g", GEMINI_API_KEY: "m", OPENROUTER_API_KEY: "o" });
+    expect(slots.map((slot) => slot.model)).toEqual([
+      "openai/gpt-oss-20b",
+      "gemini-3.5-flash-lite",
+      "openai/gpt-oss-20b",
+    ]);
+  });
+
   it("extracts JSON wrapped in code fences", () => {
     expect(extractJson('ok ```json\n{"reply":"hi"}\n```')).toEqual({ reply: "hi" });
   });
