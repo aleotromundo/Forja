@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSlots, extractJson, parseKeys, rotateSlots } from "./ai-providers";
+import { buildSlots, extractJson, parseKeys, prioritizeSlots, rotateSlots } from "./ai-providers";
 
 describe("ai provider rotation", () => {
   it("parses comma separated keys from env vars", () => {
@@ -24,6 +24,15 @@ describe("ai provider rotation", () => {
     });
     expect(rotateSlots(slots, 1).map((s) => s.key)).toEqual(["m1", "g2", "g1", "l"]);
     expect(rotateSlots(slots, 3).map((s) => s.key)).toEqual(["g1", "m1", "g2", "l"]);
+  });
+
+  it("prioritizes Groq instead of skipping it between requests", () => {
+    const slots = buildSlots({
+      GROQ_API_KEY: "g1",
+      GEMINI_API_KEYS: "m1,m2",
+      OPENROUTER_API_KEY: "o1",
+    });
+    expect(prioritizeSlots(slots).map((s) => s.key)).toEqual(["g1", "m1", "m2", "o1"]);
   });
 
   it("migrates retired Groq defaults to an active model", () => {

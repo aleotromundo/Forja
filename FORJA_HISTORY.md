@@ -191,3 +191,12 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se reforzó el prompt de IA con cambios quirúrgicos, análisis de impacto, conservación de comportamiento, preguntas ante ambigüedad y prohibición de refactors no pedidos.
 - Se creó `.github/copilot-instructions.md` con arquitectura, flujo de trabajo, comandos de validación, seguridad, responsive y reglas de edición mínima para Copilot y agentes compatibles.
 - Tests, TypeScript, lint y build pasaron: 31 tests.
+
+### Cambio 21 — Prioridad real para Groq y presupuesto por proveedor
+
+- Se detectó que el contador global rotaba entre todos los slots: con una sola clave Groq y cinco Gemini, las consultas posteriores podían empezar en Gemini y saltear Groq.
+- Se agregó `prioritizeSlots`: cada consulta prueba siempre Groq primero, luego Gemini y finalmente OpenRouter; las claves se mantienen ordenadas dentro de cada proveedor.
+- Se redujo el timeout individual de 15 a 8 segundos para evitar esperas largas.
+- Se agregó un presupuesto de 12 segundos por proveedor dentro de cada llamada, para que una cuenta saturada no recorra indefinidamente todas sus claves y modelos.
+- Se mantuvieron los fallbacks de modelo de Gemini y la rotación de claves.
+- Tests, TypeScript, lint y build pasaron: 32 tests.

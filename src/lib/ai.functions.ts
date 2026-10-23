@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateResponse } from "@lovable.dev/ai-gateway";
-import { buildSlots, extractJson, rotateSlots } from "./ai-providers";
+import { buildSlots, extractJson, prioritizeSlots, rotateSlots } from "./ai-providers";
 import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
 import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_CHARS, MAX_CONTEXT_FILES } from "./chat-context";
 import { isSafeRelativePath } from "./paths";
@@ -48,7 +48,8 @@ export interface AiStatus {
   providers: string[];
 }
 
-const PROVIDER_TIMEOUT_MS = 15_000;
+const PROVIDER_TIMEOUT_MS = 8_000;
+const PROVIDER_BUDGET_MS = 12_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
 function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
@@ -116,15 +117,10 @@ Poné "delegate": false para saludos, preguntas generales, explicaciones, ideas 
 Poné "delegate": true solamente si hace falta inspeccionar o modificar el proyecto, preparar un plan técnico con contexto del código o resolver un trabajo complejo.
 Cuando "delegate" sea false, respondé directamente y no pidas especialistas. Cuando sea true, no inventes una respuesta final todavía: indicá brevemente que vas a delegar el trabajo.`;
 
-let counter = 0;
-
 export const askForja = createServerFn({ method: "POST" })
   .validator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data }): Promise<AiResult> => {
-    const slots = rotateSlots(
-      buildSlots(process.env as Record<string, string | undefined>),
-      counter++,
-    );
+    const slots = prioritizeSlots(buildSlots(process.env as Record<string, string | undefined>));
     if (slots.length === 0) {
       throw new Error(
         "No hay claves de IA configuradas. Agregá GROQ_API_KEYS, GEMINI_API_KEYS u OPENROUTER_API_KEYS.",
@@ -147,7 +143,11 @@ export const askForja = createServerFn({ method: "POST" })
     type Msg = { role: "system" | "user" | "assistant"; content: string };
     const call = async (system: string, convo: Msg[], order: typeof slots, json: boolean) => {
       const errors: string[] = [];
+      const providerDeadlines = new Map<string, number>();
       for (const slot of order) {
+        const deadline = providerDeadlines.get(slot.provider) ?? Date.now() + PROVIDER_BUDGET_MS;
+        providerDeadlines.set(slot.provider, deadline);
+        if (Date.now() >= deadline) continue;
         try {
           let text = "";
           if (slot.provider === "lovable") {
@@ -181,8 +181,10 @@ export const askForja = createServerFn({ method: "POST" })
             let res: Response | undefined;
             let model = slot.model;
             for (const candidate of models) {
+              if (Date.now() >= deadline) break;
               model = candidate;
               for (let attempt = 0; attempt < 2; attempt++) {
+                if (Date.now() >= deadline) break;
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
                 res = await fetch(slot.url, {

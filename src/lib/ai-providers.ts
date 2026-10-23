@@ -100,6 +100,12 @@ export function rotateSlots(slots: ProviderSlot[], start: number): ProviderSlot[
   return [...rot.slice(i), ...rot.slice(0, i), ...tail];
 }
 
+/** Keep the fastest primary provider first; rotate keys only inside each provider. */
+export function prioritizeSlots(slots: ProviderSlot[]): ProviderSlot[] {
+  const order: ProviderName[] = ["groq", "gemini", "openrouter", "lovable"];
+  return order.flatMap((provider) => slots.filter((slot) => slot.provider === provider));
+}
+
 /** Extract the JSON object from a model reply that may contain fences or prose. */
 export function extractJson(text: string): unknown {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
