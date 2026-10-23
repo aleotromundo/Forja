@@ -215,9 +215,11 @@ export const askForja = createServerFn({ method: "POST" })
                   : res.status === 429
                     ? "límite de solicitudes o cuota"
                     : "respuesta de error";
-              errors.push(`${slot.provider} [${res.status} · ${reason}]: ${body.slice(0, 200)}`);
+              errors.push(
+                `${slot.envVar} (${slot.provider} · ${model}) [${res.status} · ${reason}]: ${body.slice(0, 200)}`,
+              );
               console.error(
-                `AI provider failed ${slot.provider} [${res.status}]: ${body.slice(0, 500)}`,
+                `AI provider failed ${slot.envVar} / ${slot.provider} / ${model} [${res.status}]: ${body.slice(0, 500)}`,
               );
               continue;
             }
@@ -229,7 +231,7 @@ export const askForja = createServerFn({ method: "POST" })
         } catch (err) {
           const error = err as Error;
           errors.push(
-            `${slot.provider}: ${error.name === "AbortError" ? `no respondió en ${PROVIDER_TIMEOUT_MS / 1000}s` : error.message}`,
+            `${slot.envVar} (${slot.provider} · ${slot.model}): ${error.name === "AbortError" ? `no respondió en ${PROVIDER_TIMEOUT_MS / 1000}s` : error.message}`,
           );
         }
       }

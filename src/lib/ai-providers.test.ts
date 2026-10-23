@@ -49,6 +49,7 @@ describe("ai provider rotation", () => {
   it("accepts independently named numbered keys", () => {
     const slots = buildSlots({ GEMINI_API_KEY_2: "g2", GEMINI_API_KEY_1: "g1" });
     expect(slots.map((slot) => slot.key)).toEqual(["g1", "g2"]);
+    expect(slots.map((slot) => slot.envVar)).toEqual(["GEMINI_API_KEY_1", "GEMINI_API_KEY_2"]);
   });
 
   it("uses fast coding defaults across providers", () => {

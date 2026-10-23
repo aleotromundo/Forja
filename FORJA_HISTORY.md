@@ -217,3 +217,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se limitó el equipo delegado a un máximo de dos especialistas paralelos para reducir concurrencia, cuota y puntos de bloqueo.
 - El líder continúa usando el mismo orden: Groq, Gemini y OpenRouter.
 - Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 24 — Diagnóstico seguro por variable de entorno
+
+- Cada slot de proveedor ahora conserva el nombre de la variable que lo originó, por ejemplo `GEMINI_API_KEY_1` o `GEMINI_API_KEY (clave 2)`.
+- Cuando una clave o modelo falla, el error visible informa variable, proveedor, modelo, código HTTP y motivo, sin mostrar nunca el valor secreto.
+- Forja continúa automáticamente con la siguiente clave/modelo/proveedor en lugar de detenerse en el primer fallo.
+- Las claves numeradas y las claves múltiples dentro de una variable quedaron identificadas de forma separada en el diagnóstico.
+- Tests, TypeScript, lint y build pasaron: 32 tests.

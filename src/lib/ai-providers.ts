@@ -5,6 +5,7 @@ export type ProviderName = "groq" | "gemini" | "openrouter" | "lovable";
 export interface ProviderSlot {
   provider: ProviderName;
   key: string;
+  envVar: string;
   url: string;
   model: string;
 }
@@ -54,8 +55,21 @@ function keysForProvider(env: Env, provider: ProviderName) {
   const numbered = Object.entries(env)
     .filter(([name, value]) => value && new RegExp(`^${up}_API_KEY_\\d+$`).test(name))
     .sort(([a], [b]) => Number(a.split("_").pop()) - Number(b.split("_").pop()))
-    .map(([, value]) => value);
-  return parseKeys(env[`${up}_API_KEYS`], env[`${up}_API_KEY`], ...numbered);
+    .flatMap(([name, value]) => parseKeys(value).map((key) => ({ key, envVar: name })));
+  const named = [
+    [`${up}_API_KEYS`, env[`${up}_API_KEYS`]],
+    [`${up}_API_KEY`, env[`${up}_API_KEY`]],
+  ].flatMap(([envVar, value]) =>
+    parseKeys(value).map((key, index, values) => ({
+      key,
+      envVar: values.length > 1 ? `${String(envVar)} (clave ${index + 1})` : String(envVar),
+    })),
+  );
+  const out: { key: string; envVar: string }[] = [];
+  for (const entry of [...named, ...numbered]) {
+    if (!out.some((current) => current.key === entry.key)) out.push(entry);
+  }
+  return out;
 }
 
 /**
@@ -65,9 +79,10 @@ function keysForProvider(env: Env, provider: ProviderName) {
 export function buildSlots(env: Env): ProviderSlot[] {
   const groups: ProviderSlot[][] = (["groq", "gemini", "openrouter"] as const).map((p) => {
     const up = p.toUpperCase();
-    return keysForProvider(env, p).map((key) => ({
+    return keysForProvider(env, p).map(({ key, envVar }) => ({
       provider: p,
       key,
+      envVar,
       url: DEFAULTS[p].url,
       model:
         MODEL_MIGRATIONS[p]?.[env[`${up}_MODEL`] ?? ""] ?? env[`${up}_MODEL`] ?? DEFAULTS[p].model,
@@ -84,6 +99,7 @@ export function buildSlots(env: Env): ProviderSlot[] {
     slots.push({
       provider: "lovable",
       key: env["LOVABLE_API_KEY"],
+      envVar: "LOVABLE_API_KEY",
       url: DEFAULTS.lovable.url,
       model: env["LOVABLE_MODEL"] || DEFAULTS.lovable.model,
     });
