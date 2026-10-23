@@ -67,13 +67,16 @@ function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function enabledSlots(env: Record<string, string | undefined>) {
+  const slots = buildSlots(env);
   const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,lovable")
     .split(/[\s,;]+/)
     .filter((provider): provider is "groq" | "gemini" | "openrouter" | "lovable" =>
       ["groq", "gemini", "openrouter", "lovable"].includes(provider as never),
     );
   const providers = allowed.length ? allowed : ["groq", "lovable"];
-  return buildSlots(env).filter((slot) => providers.includes(slot.provider));
+  const active = slots.filter((slot) => providers.includes(slot.provider));
+  // A stale or incomplete provider selector must never disable every configured key.
+  return active.length ? active : slots;
 }
 
 const EDIT_REQUEST =
@@ -142,7 +145,7 @@ export const askForja = createServerFn({ method: "POST" })
     const slots = prioritizeSlots(enabledSlots(process.env as Record<string, string | undefined>));
     if (slots.length === 0) {
       throw new Error(
-        "No hay claves de IA configuradas. Agregá GROQ_API_KEYS, GEMINI_API_KEYS u OPENROUTER_API_KEYS.",
+        "No hay claves de IA disponibles en este deployment. Revisá GROQ_API_KEY(S), GEMINI_API_KEY(S), OPENROUTER_API_KEY(S) o LOVABLE_API_KEY en Vercel.",
       );
     }
 

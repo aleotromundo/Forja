@@ -277,3 +277,7 @@ El indicador de estado del chat también refleja solamente los proveedores activ
 ### Cambio 31 — Restauración del fallback operativo anterior
 
 Se confirmó que el deployment anterior podía responder mediante `LOVABLE_API_KEY`, aunque la interfaz lo mostrara como una respuesta del equipo. Se restauró ese comportamiento sin volver al repositorio anterior: Groq queda primero cuando existe y Lovable vuelve a ser respaldo automático. Gemini continúa aislado hasta validar su integración.
+
+### Cambio 32 — Fallback contra selector de proveedores incompleto
+
+Se corrigió un caso de desconexión total: si `FORJA_ENABLED_PROVIDERS` apunta a un proveedor sin clave, Forja ahora usa automáticamente los proveedores que sí estén configurados en vez de quedar sin slots. También se mejoró el mensaje de diagnóstico para incluir Lovable y distinguir ausencia real de claves de un selector mal configurado.
