@@ -20,7 +20,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { askForja } from "@/lib/ai.functions";
+import { askForja, getAiStatus } from "@/lib/ai.functions";
 import {
   createDir,
   flatten,
@@ -67,6 +67,7 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
 
 export function Workbench() {
   const ask = useServerFn(askForja);
+  const getStatus = useServerFn(getAiStatus);
   const [root, setRoot] = useState<FileSystemDirectoryHandle | null>(null);
   const [tree, setTree] = useState<FileNode[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -76,6 +77,8 @@ export function Workbench() {
   const [busy, setBusy] = useState(false);
   const [changed, setChanged] = useState<Set<string>>(new Set());
   const [lastProvider, setLastProvider] = useState<string>("");
+  const [apiStatus, setApiStatus] = useState<"connecting" | "connected" | "offline">("connecting");
+  const [apiProviders, setApiProviders] = useState<string[]>([]);
   const [showExplorer, setShowExplorer] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -121,6 +124,15 @@ export function Workbench() {
   const [rightW, dragRight] = useDrag(380, 260, 700, true);
 
   const files = useMemo(() => flatten(tree), [tree]);
+
+  useEffect(() => {
+    void getStatus()
+      .then((status) => {
+        setApiProviders(status.providers);
+        setApiStatus(status.connected ? "connected" : "offline");
+      })
+      .catch(() => setApiStatus("offline"));
+  }, [getStatus]);
 
   const refresh = useCallback(
     async (r = root) => {
@@ -231,6 +243,7 @@ export function Workbench() {
       : text;
     const history: ChatMsg[] = [...messages, { role: "user", content: input }];
     setBusy(true);
+    setApiStatus("connecting");
     try {
       // Context: active file, open tabs, and any file path mentioned in the message.
       const wanted = new Set<string>();
@@ -257,6 +270,7 @@ export function Workbench() {
           mode: extras.mode ?? "edit",
         },
       });
+      setApiStatus("connected");
       setLastProvider(`${res.provider} · ${res.model}`);
       setPreviewContext("");
 
@@ -360,6 +374,7 @@ export function Workbench() {
         },
       ]);
     } catch (err) {
+      setApiStatus("offline");
       setMessages((m) => [
         ...m,
         { role: "assistant", content: (err as Error).message, error: true },
@@ -369,6 +384,12 @@ export function Workbench() {
       setBusy(false);
     }
     return true;
+  };
+
+  const editMessage = (index: number, _content: string) => {
+    setMessages((current) => current.slice(0, index));
+    setPreviewContext("");
+    toast.info("Editá el mensaje y volvé a enviarlo");
   };
 
   useEffect(() => {
@@ -609,6 +630,9 @@ export function Workbench() {
                 onUndo={(index) => void travel(false, index)}
                 previewContext={previewContext}
                 onClearContext={() => setPreviewContext("")}
+                onEditMessage={editMessage}
+                apiStatus={apiStatus}
+                apiProviders={apiProviders}
               />
             </div>
           </>

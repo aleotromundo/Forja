@@ -10,6 +10,9 @@ import {
   Paperclip,
   FolderOpen,
   Search,
+  Pencil,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -82,6 +85,9 @@ interface Props {
   onUndo: (index: number) => void;
   previewContext?: string;
   onClearContext?: () => void;
+  onEditMessage: (index: number, content: string) => void;
+  apiStatus: "connecting" | "connected" | "offline";
+  apiProviders: string[];
 }
 
 export function ChatPanel({
@@ -95,6 +101,9 @@ export function ChatPanel({
   onClearContext,
   projectFiles,
   projectName,
+  onEditMessage,
+  apiStatus,
+  apiProviders,
 }: Props) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -104,6 +113,7 @@ export function ChatPanel({
   const [search, setSearch] = useState("");
   const [reading, setReading] = useState(false);
   const [mode, setMode] = useState<ChatMode>("plan");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const dictation = useDictation((words) =>
     setText((current) => `${current}${current && !current.endsWith(" ") ? " " : ""}${words}`),
@@ -172,10 +182,49 @@ export function ChatPanel({
     }
   };
 
+  const copyMessage = async (content: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedIndex(index);
+      window.setTimeout(
+        () => setCopiedIndex((current) => (current === index ? null : current)),
+        1600,
+      );
+      toast.success("Mensaje copiado");
+    } catch {
+      toast.error("No se pudo copiar el mensaje");
+    }
+  };
+
+  const apiLabel =
+    apiStatus === "connected"
+      ? `Conectado${apiProviders.length ? ` · ${apiProviders.join(", ")}` : ""}`
+      : apiStatus === "connecting"
+        ? "Conectando"
+        : "Sin conexión";
+  const apiDot =
+    apiStatus === "connected"
+      ? "bg-emerald-400"
+      : apiStatus === "connecting"
+        ? "bg-amber-400 animate-forge"
+        : "bg-red-400";
+
   return (
     <div className="flex h-full flex-col bg-panel">
       <div className="flex h-9 items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5 text-ember" /> Forja IA
+        <span
+          role="status"
+          title={apiLabel}
+          className="ml-1 inline-flex items-center gap-1 normal-case tracking-normal text-[10px] font-normal text-muted-foreground"
+        >
+          <span className={cn("h-1.5 w-1.5 rounded-full", apiDot)} />
+          {apiStatus === "connected"
+            ? "Conectado"
+            : apiStatus === "connecting"
+              ? "Conectando"
+              : "Sin conexión"}
+        </span>
         <div
           role="radiogroup"
           aria-label="Modo del chat"
@@ -237,6 +286,32 @@ export function ChatPanel({
               ) : (
                 m.content
               )}
+            </div>
+            <div className="mt-2 flex items-center gap-1 opacity-60 transition-opacity hover:opacity-100">
+              {m.role === "user" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setText(m.content);
+                    onEditMessage(i, m.content);
+                    input.current?.focus();
+                  }}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+                  title="Editar y volver a enviar"
+                >
+                  <Pencil className="h-3 w-3" /> Editar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void copyMessage(m.content, i)}
+                className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                title="Copiar mensaje"
+              >
+                {copiedIndex === i ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copiedIndex === i ? "Copiado" : "Copiar"}
+              </button>
             </div>
             {m.edits && m.edits.length > 0 && (
               <div className="mt-2 space-y-1 border-t pt-2">

@@ -80,3 +80,12 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Si el usuario cancela, no se toca el filesystem y la conversación registra que los cambios fueron rechazados.
 - La validación de rutas se mantiene antes de mostrar y aplicar la propuesta.
 - Tests, TypeScript, lint y build pasaron.
+
+### Cambio 9 — Estado de APIs y acciones del chat
+
+- Se agregó `getAiStatus`, una función server-side que informa si hay proveedores configurados y cuáles, sin devolver claves ni valores secretos.
+- El encabezado del chat muestra un indicador discreto: verde `Conectado`, naranja `Conectando` y rojo `Sin conexión`.
+- El indicador se actualiza al cargar la aplicación, al iniciar una consulta y según el resultado de la llamada.
+- Cada mensaje ahora tiene acción `Copiar`; los mensajes del usuario también tienen `Editar`, que carga el texto y recorta la conversación para reenviarlo.
+- Se muestran confirmaciones breves al copiar o preparar una edición.
+- Tests, TypeScript, lint y build pasaron.

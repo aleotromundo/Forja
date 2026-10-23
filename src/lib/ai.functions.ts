@@ -43,6 +43,19 @@ export interface AiResult {
   team: string[];
 }
 
+export interface AiStatus {
+  connected: boolean;
+  providers: string[];
+}
+
+export const getAiStatus = createServerFn({ method: "GET" }).handler((): AiStatus => {
+  const slots = buildSlots(process.env as Record<string, string | undefined>);
+  return {
+    connected: slots.length > 0,
+    providers: [...new Set(slots.map((slot) => slot.provider))],
+  };
+});
+
 const SYSTEM = `Sos Forja, un asistente de programación integrado en un editor tipo VS Code.
 El usuario trabaja sobre una carpeta local. Recibís la lista de archivos del proyecto y el contenido de los archivos relevantes.
 Cuando el usuario pida cambios, modificá los archivos directamente.
