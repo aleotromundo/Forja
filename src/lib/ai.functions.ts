@@ -51,6 +51,7 @@ export interface AiStatus {
 const PROVIDER_TIMEOUT_MS = 8_000;
 const PROVIDER_BUDGET_MS = 12_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const MODEL_FALLBACK_STATUS = new Set([400, 404, 429, 500, 502, 503, 504]);
 
 function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -208,7 +209,12 @@ export const askForja = createServerFn({ method: "POST" })
                 if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === 1) break;
                 await wait(700);
               }
-              if (res?.ok || res?.status !== 503 || candidate === models.at(-1)) break;
+              if (
+                res?.ok ||
+                !MODEL_FALLBACK_STATUS.has(res?.status ?? 0) ||
+                candidate === models.at(-1)
+              )
+                break;
             }
             if (!res) throw new Error(`${slot.provider} no devolvió una respuesta`);
             if (!res.ok) {

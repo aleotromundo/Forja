@@ -243,3 +243,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Si detecta problemas o no puede verificar de forma segura, devuelve `edits: []` y bloquea la escritura.
 - El equipo delegado queda informado con el agente `Verificador` y se incluye un resumen de la revisión cuando corresponde.
 - Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 27 — Fallback de modelo ante errores 400 de Gemini
+
+- Se confirmó que un 400 indica una solicitud rechazada por formato, modelo o configuración, no una simple saturación 503.
+- Se corrigió el bucle de Gemini para que, ante 400, 404, 429 o errores transitorios, pruebe inmediatamente el siguiente modelo Flash-Lite en vez de repetir el mismo modelo con todas las claves.
+- Los errores de autenticación y permisos siguen marcándose en la variable exacta y pasan al siguiente slot sin reintentos inútiles.
+- La verificación de edits también usa esta política y no queda bloqueada por un modelo Gemini inválido.
+- Tests, TypeScript, lint y build pasaron: 32 tests.
