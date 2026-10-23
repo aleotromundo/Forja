@@ -50,8 +50,8 @@ GEMINI_API_KEYS=...
 OPENROUTER_API_KEYS=...
 GEMINI_API_KEY_1=...
 GEMINI_API_KEY_2=...
-# Por defecto se activan Groq y Lovable; Gemini sigue aislado
-FORJA_ENABLED_PROVIDERS=groq,lovable
+# Orden recomendado: Groq, Gemini y Lovable si está disponible
+FORJA_ENABLED_PROVIDERS=groq,gemini,lovable
 ```
 
 Las formas singular (`GEMINI_API_KEY`), plural (`GEMINI_API_KEYS`) y numerada (`GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.) se combinan y se deduplican. Las claves numeradas se ordenan por número y cada una participa como un slot independiente de rotación.
@@ -60,7 +60,7 @@ Por defecto, Forja prioriza modelos rápidos para código: Groq usa `openai/gpt-
 
 Las llamadas de IA pasan por `src/lib/ai.functions.ts`. Las claves permanecen del lado del servidor; el navegador envía solamente el contexto que el usuario selecciona para la conversación.
 
-Por seguridad operativa, Forja activa Groq y el fallback de Lovable si `FORJA_ENABLED_PROVIDERS` no está definida. Las claves de Gemini pueden permanecer guardadas en Vercel sin participar en las consultas. Cuando la integración de Gemini quede verificada, se puede cambiar esa variable a `groq,gemini` o `groq,gemini,lovable` sin volver a cargar ninguna clave.
+Por defecto, Forja activa Groq, Gemini y el fallback de Lovable si `FORJA_ENABLED_PROVIDERS` no está definida. Groq se prueba primero y un error de Gemini no interrumpe el flujo: se continúa con el siguiente proveedor disponible.
 
 ## Privacidad y permisos
 

@@ -68,12 +68,12 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function enabledSlots(env: Record<string, string | undefined>) {
   const slots = buildSlots(env);
-  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,lovable")
+  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,gemini,lovable")
     .split(/[\s,;]+/)
     .filter((provider): provider is "groq" | "gemini" | "openrouter" | "lovable" =>
       ["groq", "gemini", "openrouter", "lovable"].includes(provider as never),
     );
-  const providers = allowed.length ? allowed : ["groq", "lovable"];
+  const providers = allowed.length ? allowed : ["groq", "gemini", "lovable"];
   const active = slots.filter((slot) => providers.includes(slot.provider));
   // A stale or incomplete provider selector must never disable every configured key.
   return active.length ? active : slots;
@@ -218,18 +218,25 @@ export const askForja = createServerFn({ method: "POST" })
                 if (Date.now() >= deadline) break;
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+                const messages =
+                  slot.provider === "gemini"
+                    ? [
+                        { role: "system" as const, content: `${system}\n\n${context}` },
+                        ...convo.filter((message) => message.role !== "system"),
+                      ]
+                    : [
+                        { role: "system" as const, content: system },
+                        { role: "system" as const, content: context },
+                        ...convo,
+                      ];
                 res = await fetch(slot.url, {
                   method: "POST",
                   headers,
                   signal: controller.signal,
                   body: JSON.stringify({
                     model: candidate,
-                    messages: [
-                      { role: "system", content: system },
-                      { role: "system", content: context },
-                      ...convo,
-                    ],
-                    temperature: json ? 0.2 : 0.4,
+                    messages,
+                    ...(slot.provider === "gemini" ? {} : { temperature: json ? 0.2 : 0.4 }),
                   }),
                 }).finally(() => clearTimeout(timer));
                 if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === 1) break;

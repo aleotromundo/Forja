@@ -281,3 +281,9 @@ Se confirmó que el deployment anterior podía responder mediante `LOVABLE_API_K
 ### Cambio 32 — Fallback contra selector de proveedores incompleto
 
 Se corrigió un caso de desconexión total: si `FORJA_ENABLED_PROVIDERS` apunta a un proveedor sin clave, Forja ahora usa automáticamente los proveedores que sí estén configurados en vez de quedar sin slots. También se mejoró el mensaje de diagnóstico para incluir Lovable y distinguir ausencia real de claves de un selector mal configurado.
+
+### Cambio 33 — Flujo definitivo Groq → Gemini → Lovable
+
+Se activó el orden recomendado con Groq primero, Gemini como segundo proveedor y Lovable como respaldo si el entorno lo ofrece. Para Gemini se consolidan las instrucciones y el contexto en un único mensaje `system`, se eliminan mensajes `system` consecutivos y se omite `temperature` para evitar incompatibilidades del adaptador OpenAI con modelos de razonamiento.
+
+Un error 400 de Gemini queda aislado por la rotación y no interrumpe el intento con los demás proveedores.
