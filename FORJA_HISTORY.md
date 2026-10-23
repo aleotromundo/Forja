@@ -183,3 +183,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se agregó una normalización segura de la respuesta visible: elimina encabezados, viñetas y negritas Markdown excesivas, pero preserva bloques de código.
 - Los objetos JSON internos y el contenido completo de archivos no se modifican; solo se limpia el texto de respuesta mostrado al usuario.
 - Tests, TypeScript, lint y build pasaron: 31 tests.
+
+### Cambio 20 — Guía de desarrollo inspirada en prácticas públicas de Copilot
+
+- Se investigó la documentación pública de GitHub Copilot y VS Code: instrucciones de repositorio, instrucciones por ruta, planificación, contexto explícito, revisión de diffs, checkpoints y validación.
+- No se copió ningún prompt interno privado; se tradujeron esas prácticas a reglas propias de Forja.
+- Se reforzó el prompt de IA con cambios quirúrgicos, análisis de impacto, conservación de comportamiento, preguntas ante ambigüedad y prohibición de refactors no pedidos.
+- Se creó `.github/copilot-instructions.md` con arquitectura, flujo de trabajo, comandos de validación, seguridad, responsive y reglas de edición mínima para Copilot y agentes compatibles.
+- Tests, TypeScript, lint y build pasaron: 31 tests.
