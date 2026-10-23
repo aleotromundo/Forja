@@ -357,12 +357,75 @@ export const askForja = createServerFn({ method: "POST" })
             (e.action === "delete" || typeof e.content === "string"),
         )
       : [];
+    const safeEdits: AiEdit[] = enforceMode(
+      data.mode,
+      edits.map((e): AiEdit => ({
+        ...e,
+        action: e.action === "delete" ? "delete" : "write",
+      })),
+    );
+    if (safeEdits.length > 0) {
+      const verificationPrompt = `Sos el verificador de cambios de Forja. Revisá el pedido original del usuario y la propuesta del líder contra los archivos del proyecto que recibiste.
+Compará exactamente qué se pidió con qué archivos y contenido se propone modificar. Verificá alcance mínimo, imports, tipos, referencias, estado, rutas, seguridad, responsive y posibles regresiones.
+No escribas archivos ni propongas una solución nueva. Devolvé SOLO JSON válido con esta forma:
+{"approved":true,"summary":"explicación breve","issues":["problema concreto"]}
+Usá approved=false si falta algo, sobra un archivo, el contenido está incompleto, hay una regresión probable o no podés verificar el cambio con seguridad.
+
+PEDIDO ORIGINAL:\n${lastUser}\n\nRESPUESTA DEL LÍDER:\n${typeof parsed.reply === "string" ? parsed.reply : ""}\n\nEDITS PROPUESTOS:\n${JSON.stringify(safeEdits)}`;
+      try {
+        const verification = await call(
+          `${SYSTEM}\n\nMODO VERIFICACIÓN: no generes edits. Tu única tarea es revisar la propuesta y devolver el JSON de verificación solicitado.`,
+          [{ role: "user", content: verificationPrompt }],
+          prioritizeSlots(slots),
+          true,
+        );
+        const verdict = extractJson(verification.text) as {
+          approved?: unknown;
+          summary?: unknown;
+          issues?: unknown;
+        } | null;
+        const approved = verdict?.approved === true;
+        const issues = Array.isArray(verdict?.issues)
+          ? verdict.issues.filter((issue): issue is string => typeof issue === "string").slice(0, 5)
+          : [];
+        const summary = typeof verdict?.summary === "string" ? verdict.summary : "";
+        if (!approved) {
+          return {
+            reply: naturalizeReply(
+              `El verificador detuvo los cambios antes de tocar los archivos. ${summary}${
+                issues.length ? `\n\nProblemas detectados:\n${issues.join("\n")}` : ""
+              }`,
+            ),
+            edits: [],
+            provider: lead.provider,
+            model: lead.model,
+            team: [...teamNames, "Verificador"],
+          };
+        }
+        return {
+          reply: naturalizeReply(
+            `${typeof parsed.reply === "string" ? parsed.reply : "Listo."}${
+              summary ? `\n\nVerificación: ${summary}` : ""
+            }`,
+          ),
+          edits: safeEdits,
+          provider: lead.provider,
+          model: lead.model,
+          team: [...teamNames, "Verificador"],
+        };
+      } catch (error) {
+        return {
+          reply: `No apliqué los cambios porque el verificador no pudo responder de forma segura: ${(error as Error).message}`,
+          edits: [],
+          provider: lead.provider,
+          model: lead.model,
+          team: [...teamNames, "Verificador"],
+        };
+      }
+    }
     return {
       reply: naturalizeReply(typeof parsed.reply === "string" ? parsed.reply : "Listo."),
-      edits: enforceMode(
-        data.mode,
-        edits.map((e) => ({ ...e, action: e.action === "delete" ? "delete" : "write" })),
-      ),
+      edits: safeEdits,
       provider: lead.provider,
       model: lead.model,
       team: teamNames,

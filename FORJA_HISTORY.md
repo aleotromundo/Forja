@@ -233,3 +233,13 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se agregó una salvaguarda server-side: si el modo es Modificar y el mensaje contiene una intención clara de edición, Forja delega aunque el modelo haya olvidado marcar `delegate: true`.
 - Así el líder debe devolver edits estructurados para que Workbench pueda mostrar la confirmación y escribir los archivos, en vez de limitarse a imprimir código.
 - Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 26 — Verificador cruzado antes de aplicar cambios
+
+- Se agregó una etapa de verificación después del líder y antes de devolver edits al navegador.
+- El verificador recibe el pedido original, la respuesta del líder, el contexto del proyecto y los edits completos.
+- Revisa alcance, archivos correctos, imports, tipos, referencias, seguridad, responsive y regresiones.
+- Si aprueba, los edits llegan a Workbench y se muestra la confirmación normal antes de escribir en disco.
+- Si detecta problemas o no puede verificar de forma segura, devuelve `edits: []` y bloquea la escritura.
+- El equipo delegado queda informado con el agente `Verificador` y se incluye un resumen de la revisión cuando corresponde.
+- Tests, TypeScript, lint y build pasaron: 32 tests.
