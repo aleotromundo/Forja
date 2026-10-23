@@ -43,6 +43,8 @@ import { PreviewPane } from "./PreviewPane";
 import { Button } from "@/components/ui/button";
 import { EditHistory, type HistoryEntry } from "@/lib/edit-history";
 import { collectChatContext, type ChatExtras } from "@/lib/chat-context";
+import { loadChatHistory, saveChatHistory } from "@/lib/chat-persistence";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type Snapshot = { path: string; before: string | null }[];
 
@@ -79,6 +81,8 @@ export function Workbench() {
   const [lastProvider, setLastProvider] = useState<string>("");
   const [apiStatus, setApiStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [apiProviders, setApiProviders] = useState<string[]>([]);
+  const isMobile = useIsMobile();
+  const [mobilePanel, setMobilePanel] = useState<"editor" | "explorer" | "chat">("editor");
   const [showExplorer, setShowExplorer] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -134,6 +138,10 @@ export function Workbench() {
       .catch(() => setApiStatus("offline"));
   }, [getStatus]);
 
+  useEffect(() => {
+    if (root?.name) saveChatHistory(root.name, messages);
+  }, [root?.name, messages]);
+
   const refresh = useCallback(
     async (r = root) => {
       if (r) setTree(await readTree(r));
@@ -146,7 +154,7 @@ export function Workbench() {
       const h = await pickFolder();
       editHistory.current.clear();
       updateHistory((v) => v + 1);
-      setMessages([]);
+      setMessages(loadChatHistory(h.name) as ChatMsg[]);
       setRoot(h);
       setTabs([]);
       setActive(null);
@@ -392,6 +400,9 @@ export function Workbench() {
     toast.info("Editá el mensaje y volvé a enviarlo");
   };
 
+  const explorerVisible = isMobile ? mobilePanel === "explorer" : showExplorer;
+  const chatVisible = isMobile ? mobilePanel === "chat" : showChat;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
@@ -408,10 +419,12 @@ export function Workbench() {
         if (root) setQuickOpen(true);
       } else if (mod && e.key.toLowerCase() === "b") {
         e.preventDefault();
-        setShowExplorer((v) => !v);
+        if (isMobile) setMobilePanel("explorer");
+        else setShowExplorer((v) => !v);
       } else if (mod && e.key.toLowerCase() === "l") {
         e.preventDefault();
-        setShowChat((v) => !v);
+        if (isMobile) setMobilePanel("chat");
+        else setShowChat((v) => !v);
       } else if (mod && e.key.toLowerCase() === "s") {
         e.preventDefault();
         if (active) save(active);
@@ -426,21 +439,21 @@ export function Workbench() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       {/* Title bar */}
-      <div className="flex h-8 shrink-0 items-center gap-3 border-b bg-panel-deep px-3 text-xs">
+      <div className="flex h-8 shrink-0 items-center gap-2 border-b bg-panel-deep px-2 text-xs sm:gap-3 sm:px-3">
         <Flame className="h-4 w-4 text-ember" />
         <span className="font-semibold tracking-wide">Forja</span>
         <button
           onClick={openFolder}
-          className="rounded px-2 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="shrink-0 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground sm:px-2"
         >
           Abrir carpeta
         </button>
         <button
           onClick={() => root && setQuickOpen(true)}
-          className="mx-auto flex w-80 items-center gap-2 rounded border bg-background px-2 py-0.5 text-muted-foreground hover:border-ember"
+          className="mx-auto flex min-w-0 flex-1 items-center gap-2 rounded border bg-background px-2 py-0.5 text-muted-foreground hover:border-ember sm:w-80 sm:flex-none"
         >
           <Search className="h-3.5 w-3.5" /> {root ? root.name : "Forja"}{" "}
-          <span className="ml-auto font-mono">Ctrl+P</span>
+          <span className="ml-auto hidden font-mono sm:inline">Ctrl+P</span>
         </button>
         <span className="w-24" />
       </div>
@@ -452,19 +465,19 @@ export function Workbench() {
             {
               icon: Files,
               on: showExplorer,
-              fn: () => setShowExplorer((v) => !v),
+              fn: () => (isMobile ? setMobilePanel("explorer") : setShowExplorer((v) => !v)),
               title: "Explorador (Ctrl+B)",
             },
             {
               icon: Search,
               on: false,
-              fn: () => root && setQuickOpen(true),
+              fn: () => root && (isMobile ? setMobilePanel("editor") : setQuickOpen(true)),
               title: "Buscar archivo (Ctrl+P)",
             },
             {
               icon: Sparkles,
               on: showChat,
-              fn: () => setShowChat((v) => !v),
+              fn: () => (isMobile ? setMobilePanel("chat") : setShowChat((v) => !v)),
               title: "Chat IA (Ctrl+L)",
             },
           ].map(({ icon: Icon, on, fn, title }) => (
@@ -482,9 +495,12 @@ export function Workbench() {
           ))}
         </div>
 
-        {showExplorer && (
+        {explorerVisible && (
           <>
-            <div style={{ width: leftW }} className="shrink-0 border-r">
+            <div
+              style={isMobile ? undefined : { width: leftW }}
+              className="min-w-0 flex-1 border-r"
+            >
               {root ? (
                 <Explorer
                   rootName={root.name}
@@ -518,11 +534,21 @@ export function Workbench() {
                 </div>
               )}
             </div>
-            <div onMouseDown={dragLeft} className="w-1 shrink-0 cursor-col-resize hover:bg-ember" />
+            {!isMobile && (
+              <div
+                onMouseDown={dragLeft}
+                className="w-1 shrink-0 cursor-col-resize hover:bg-ember"
+              />
+            )}
           </>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col",
+            isMobile && mobilePanel !== "editor" && "hidden",
+          )}
+        >
           <div className="flex h-9 shrink-0 items-center justify-end gap-1 border-b bg-panel-deep px-2">
             <Button
               variant="ghost"
@@ -534,7 +560,7 @@ export function Workbench() {
                 void save(active).catch(() => toast.error("No se pudo guardar el archivo"))
               }
             >
-              <Save /> Guardar
+              <Save /> <span className="hidden sm:inline">Guardar</span>
             </Button>
             <Button
               variant="ghost"
@@ -562,7 +588,7 @@ export function Workbench() {
               aria-pressed={view === "code"}
               onClick={() => setView("code")}
             >
-              <Code2 /> Código
+              <Code2 /> <span className="hidden sm:inline">Código</span>
             </Button>
             <Button
               variant={view === "preview" ? "secondary" : "ghost"}
@@ -570,7 +596,7 @@ export function Workbench() {
               aria-pressed={view === "preview"}
               onClick={() => setView("preview")}
             >
-              <Globe /> Vista previa
+              <Globe /> <span className="hidden sm:inline">Vista previa</span>
             </Button>
           </div>
           <div className="min-h-0 flex-1">
@@ -589,7 +615,8 @@ export function Workbench() {
                 canRedo={editHistory.current.canRedo && !busy}
                 onContext={(context) => {
                   setPreviewContext(context);
-                  setShowChat(true);
+                  if (isMobile) setMobilePanel("chat");
+                  else setShowChat(true);
                 }}
               />
             </div>
@@ -612,13 +639,16 @@ export function Workbench() {
           </div>
         </div>
 
-        {showChat && (
+        {chatVisible && (
           <>
             <div
               onMouseDown={dragRight}
-              className="w-1 shrink-0 cursor-col-resize hover:bg-ember"
+              className={cn("w-1 shrink-0 cursor-col-resize hover:bg-ember", isMobile && "hidden")}
             />
-            <div style={{ width: rightW }} className="shrink-0 border-l">
+            <div
+              style={isMobile ? undefined : { width: rightW }}
+              className={cn("min-w-0 flex-1 border-l", !isMobile && "shrink-0")}
+            >
               <ChatPanel
                 messages={messages}
                 busy={busy}

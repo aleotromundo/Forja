@@ -89,3 +89,15 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Cada mensaje ahora tiene acción `Copiar`; los mensajes del usuario también tienen `Editar`, que carga el texto y recorta la conversación para reenviarlo.
 - Se muestran confirmaciones breves al copiar o preparar una edición.
 - Tests, TypeScript, lint y build pasaron.
+
+### Cambio 10 — Auditoría responsive y persistencia temporal del chat
+
+- Se agregó un modo móvil de panel único: editor, explorador y chat ya no se renderizan simultáneamente con anchos fijos en pantallas chicas.
+- Se adaptaron la barra superior, la toolbar del editor y los atajos Ctrl+B/Ctrl+L para navegar entre paneles móviles.
+- El contexto enviado desde la vista previa abre el chat correcto también en móvil.
+- Las acciones de eliminar del explorador tienen área táctil visible en móvil y no dejan zonas de clic invisibles.
+- Se agregó persistencia acotada en `localStorage` por nombre de proyecto: conserva hasta 80 mensajes y limita cada contenido a 40.000 caracteres.
+- El historial se restaura al volver a abrir el mismo proyecto después de recargar; la carpeta sigue requiriendo permiso del navegador y debe volver a seleccionarse.
+- Se agregó tolerancia ante `localStorage` bloqueado, lleno o corrupto para que el chat siga funcionando en memoria.
+- Auditoría visual local: sin overflow horizontal ni botones sin etiqueta en la vista inspeccionada.
+- Tests, TypeScript, lint y build pasaron.

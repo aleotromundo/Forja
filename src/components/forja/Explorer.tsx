@@ -56,7 +56,7 @@ export function Explorer(p: Props) {
               )}
               <span className="truncate">{n.name}</span>
               <button
-                className="ml-auto hidden text-muted-foreground hover:text-destructive group-hover:block"
+                className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation();
                   p.onDelete(n.path);
@@ -89,7 +89,7 @@ export function Explorer(p: Props) {
             <span className="ml-1 text-[10px] font-semibold text-added">M</span>
           )}
           <button
-            className="ml-auto hidden text-muted-foreground hover:text-destructive group-hover:block"
+            className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100"
             onClick={(e) => {
               e.stopPropagation();
               p.onDelete(n.path);
