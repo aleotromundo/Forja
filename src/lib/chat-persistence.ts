@@ -1,7 +1,7 @@
 export interface PersistedChatMessage {
   role: "user" | "assistant";
   content: string;
-  edits?: { path: string; action: "write" | "delete" }[];
+  edits?: { path: string; action: "write" | "delete" | "mkdir" | "move"; toPath?: string }[];
   provider?: string;
   team?: string[];
   error?: boolean;

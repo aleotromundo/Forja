@@ -8,6 +8,7 @@ La idea es trabajar sobre una carpeta local sin subir el proyecto completo a un 
 
 - Explorador de archivos y pestañas de edición con Monaco.
 - Edición y guardado directo en la carpeta local mediante la File System Access API.
+- Operaciones de workspace desde el chat: crear carpetas, crear o eliminar archivos y mover o renombrar rutas.
 - Chat con contexto del archivo activo, pestañas abiertas, archivos seleccionados y adjuntos de texto.
 - Dos modos de trabajo: **Planear**, que no modifica archivos, y **Modificar**, que puede aplicar cambios.
 - Historial unificado para cambios de IA, edición de código, preview y anotaciones.
@@ -49,6 +50,8 @@ GEMINI_API_KEYS=...
 OPENROUTER_API_KEYS=...
 GEMINI_API_KEY_1=...
 GEMINI_API_KEY_2=...
+# Por defecto solo se activa Groq; luego se puede usar: groq,gemini,openrouter
+FORJA_ENABLED_PROVIDERS=groq
 ```
 
 Las formas singular (`GEMINI_API_KEY`), plural (`GEMINI_API_KEYS`) y numerada (`GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.) se combinan y se deduplican. Las claves numeradas se ordenan por número y cada una participa como un slot independiente de rotación.
@@ -56,6 +59,8 @@ Las formas singular (`GEMINI_API_KEY`), plural (`GEMINI_API_KEYS`) y numerada (`
 Por defecto, Forja prioriza modelos rápidos para código: Groq usa `openai/gpt-oss-20b`, Gemini usa `gemini-3-flash-preview` y OpenRouter usa `openai/gpt-oss-20b`. Se pueden reemplazar con `GROQ_MODEL`, `GEMINI_MODEL` y `OPENROUTER_MODEL`. Si Gemini falla, Forja prueba exactamente esta lista confirmada para el proyecto: `gemini-3-flash-preview`, `gemini-3-pro`, `gemini-3-flash-8b`, `gemini-3-flash` y `gemini-1.5-flash`, antes de pasar a otra clave o proveedor.
 
 Las llamadas de IA pasan por `src/lib/ai.functions.ts`. Las claves permanecen del lado del servidor; el navegador envía solamente el contexto que el usuario selecciona para la conversación.
+
+Por seguridad operativa, Forja activa solo Groq si `FORJA_ENABLED_PROVIDERS` no está definida. Las claves de Gemini pueden permanecer guardadas en Vercel sin participar en las consultas. Cuando la integración de Gemini quede verificada, se puede cambiar esa variable a `groq,gemini` sin volver a cargar ninguna clave.
 
 ## Privacidad y permisos
 
@@ -69,8 +74,9 @@ El preview local se renderiza dentro de un `iframe` con sandbox. Los scripts, fo
 2. Elegí **Abrir carpeta** y seleccioná tu proyecto.
 3. Usá **Planear** para conversar sobre el cambio y revisar una propuesta.
 4. Cambiá a **Modificar** cuando quieras aplicar el plan.
-5. Revisá el diff en el editor, guardá los archivos y usá el historial si necesitás deshacer.
-6. En **Vista previa**, seleccioná un elemento o agregá una anotación y enviá ese contexto al chat.
+5. Revisá la propuesta explícita antes de aplicarla. Forja valida las rutas y no escribe nada sin confirmación.
+6. Usá el historial para deshacer o rehacer ediciones, creación de carpetas y movimientos.
+7. En **Vista previa**, seleccioná un elemento o agregá una anotación y enviá ese contexto al chat.
 
 ## Estructura principal
 

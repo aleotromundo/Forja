@@ -259,3 +259,17 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - `gemini-3-flash-preview` quedó como default de Gemini; la variable `GEMINI_MODEL` de Vercel, si existe, continúa teniendo prioridad.
 - Los errores 400/404/429 y transitorios avanzan por esta lista exacta antes de probar otra clave o proveedor.
 - Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 29 — Operaciones completas de workspace y undo/redo
+
+Se integraron de punta a punta las acciones `mkdir` y `move` en Workbench, incluyendo creación de carpetas y movimiento o renombrado de archivos y carpetas. Los snapshots del historial ahora conservan el tipo de operación y, cuando corresponde, la ruta destino. Deshacer y rehacer restauran correctamente escritura, eliminación, creación de carpetas y movimientos.
+
+Las estadísticas de sesión siguen contabilizando líneas solamente para cambios de contenido y no inventan líneas para operaciones estructurales. La confirmación del chat y el resumen de operaciones ahora distinguen modificar, eliminar, crear carpeta y mover, mostrando el destino del movimiento. Se conservan las validaciones de rutas y la confirmación explícita antes de tocar el disco. README actualizado con el flujo de workspace.
+
+Tests, TypeScript, lint y build pasaron: 32 tests.
+
+### Cambio 30 — Groq activo y Gemini aislado temporalmente
+
+Se agregó `FORJA_ENABLED_PROVIDERS`. Si no está definida, Forja activa únicamente Groq, sin borrar ni modificar ninguna variable o clave de Gemini. La variable puede cambiarse luego a `groq,gemini` cuando la integración de Gemini haya sido probada de forma independiente.
+
+El indicador de estado del chat también refleja solamente los proveedores activos, evitando que Gemini aparezca como disponible si está temporalmente aislado.

@@ -70,7 +70,7 @@ function MessageText({
 export interface ChatMsg {
   role: "user" | "assistant";
   content: string;
-  edits?: { path: string; action: "write" | "delete" }[];
+  edits?: { path: string; action: "write" | "delete" | "mkdir" | "move"; toPath?: string }[];
   provider?: string;
   team?: string[];
   error?: boolean;
@@ -455,7 +455,17 @@ export function ChatPanel({
                         e.action === "delete" ? "text-destructive" : "text-added",
                       )}
                     />
-                    <span className={cn(e.action === "delete" && "line-through")}>{e.path}</span>
+                    <span className={cn(e.action === "delete" && "line-through")}>
+                      {e.action === "mkdir"
+                        ? "Crear carpeta "
+                        : e.action === "move"
+                          ? "Mover "
+                          : e.action === "delete"
+                            ? "Eliminar "
+                            : "Modificar "}
+                      {e.path}
+                      {e.action === "move" && e.toPath ? ` → ${e.toPath}` : ""}
+                    </span>
                   </button>
                 ))}
                 <button

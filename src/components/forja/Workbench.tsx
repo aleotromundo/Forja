@@ -27,6 +27,7 @@ import {
   isSupported,
   isTextFile,
   languageOf,
+  moveEntry,
   pickFolder,
   readFile,
   readTree,
@@ -52,7 +53,12 @@ import {
 } from "@/lib/chat-persistence";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-type Snapshot = { path: string; before: string | null }[];
+type Snapshot = {
+  path: string;
+  before: string | null;
+  action: "write" | "delete" | "mkdir" | "move";
+  toPath?: string;
+}[];
 
 function lineDelta(before: string, after: string) {
   const oldLines = before ? before.split("\n") : [];
@@ -372,11 +378,27 @@ export function Workbench() {
       setPreviewContext("");
 
       // Apply edits to disk and editor.
-      const edits = res.edits.filter((edit) => isSafeRelativePath(edit.path));
+      const edits = res.edits.filter(
+        (edit) =>
+          isSafeRelativePath(edit.path) &&
+          (edit.action !== "move" || (edit.toPath && isSafeRelativePath(edit.toPath))),
+      );
       if (
         edits.length > 0 &&
         !window.confirm(
-          `La IA propone aplicar ${edits.length} cambio${edits.length === 1 ? "" : "s"}:\n\n${edits.map((edit) => `${edit.action === "delete" ? "Eliminar" : "Modificar"} ${edit.path}`).join("\n")}\n\n¿Querés aplicar estos cambios?`,
+          `La IA propone aplicar ${edits.length} cambio${edits.length === 1 ? "" : "s"}:\n\n${edits
+            .map((edit) => {
+              const label =
+                edit.action === "delete"
+                  ? "Eliminar"
+                  : edit.action === "mkdir"
+                    ? "Crear carpeta"
+                    : edit.action === "move"
+                      ? "Mover"
+                      : "Modificar/crear";
+              return `${label} ${edit.path}${edit.action === "move" ? ` → ${edit.toPath}` : ""}`;
+            })
+            .join("\n")}\n\n¿Querés aplicar estos cambios?`,
         )
       ) {
         setMessages((current) => [
@@ -392,12 +414,25 @@ export function Workbench() {
       }
       const snap: Snapshot = [];
       for (const e of edits) {
+        if (e.action === "move" && !e.toPath)
+          throw new Error(`Falta el destino para mover ${e.path}`);
         const prev =
-          tabs.find((t) => t.path === e.path)?.content ??
-          (await readFile(root, e.path).catch(() => null));
-        snap.push({ path: e.path, before: prev });
+          e.action === "mkdir"
+            ? null
+            : (tabs.find((t) => t.path === e.path)?.content ??
+              (await readFile(root, e.path).catch(() => null)));
+        snap.push({
+          path: e.path,
+          before: prev,
+          action: e.action,
+          ...(e.toPath ? { toPath: e.toPath } : {}),
+        });
         if (e.action === "delete") {
           await removeEntry(root, e.path).catch(() => {});
+        } else if (e.action === "mkdir") {
+          await createDir(root, e.path);
+        } else if (e.action === "move" && e.toPath) {
+          await moveEntry(root, e.path, e.toPath);
         } else {
           await writeFile(root, e.path, e.content ?? "");
         }
@@ -410,6 +445,7 @@ export function Workbench() {
             const files = { ...session.files };
             edits.forEach((edit) => {
               const before = snap.find((item) => item.path === edit.path)?.before ?? "";
+              if (edit.action !== "write" && edit.action !== "delete") return;
               const delta = lineDelta(before, edit.action === "delete" ? "" : (edit.content ?? ""));
               const previous = files[edit.path] ?? { added: 0, removed: 0, updatedAt };
               files[edit.path] = {
@@ -423,23 +459,34 @@ export function Workbench() {
         );
       }
       const idx = history.length;
-      if (snap.length) {
+      if (edits.length) {
         const folder = root;
-        const after = edits.map((e) => ({
+        const after: Snapshot = edits.map((e) => ({
           path: e.path,
-          before: e.action === "delete" ? null : (e.content ?? ""),
+          before: e.action === "write" ? (e.content ?? "") : null,
+          action: e.action,
+          ...(e.toPath ? { toPath: e.toPath } : {}),
         }));
         const restore = async (values: Snapshot, undone: boolean) => {
           for (const item of values) {
-            if (item.before === null) await removeEntry(folder, item.path);
-            else await writeFile(folder, item.path, item.before);
+            if (undone) {
+              if (item.action === "move" && item.toPath)
+                await moveEntry(folder, item.toPath, item.path);
+              else if (item.action === "mkdir") await removeEntry(folder, item.path);
+              else if (item.before === null) await removeEntry(folder, item.path);
+              else await writeFile(folder, item.path, item.before);
+            } else if (item.action === "delete") await removeEntry(folder, item.path);
+            else if (item.action === "mkdir") await createDir(folder, item.path);
+            else if (item.action === "move" && item.toPath)
+              await moveEntry(folder, item.path, item.toPath);
+            else await writeFile(folder, item.path, item.before ?? "");
           }
           setTabs((current) => {
             let next = current.filter(
-              (tab) => !values.some((item) => item.path === tab.path && item.before === null),
+              (tab) => !values.some((item) => item.path === tab.path && item.action === "delete"),
             );
             for (const item of values) {
-              if (item.before === null) continue;
+              if (item.action !== "write" || item.before === null) continue;
               const content = item.before;
               next = next.some((tab) => tab.path === item.path)
                 ? next.map((tab) =>
@@ -451,7 +498,7 @@ export function Workbench() {
             }
             return next;
           });
-          setActive(values.find((item) => item.before !== null)?.path ?? null);
+          setActive(values.find((item) => item.action === "write")?.path ?? null);
           setMessages((current) =>
             current.map((message, i) => (i === idx ? { ...message, undone } : message)),
           );
@@ -477,7 +524,13 @@ export function Workbench() {
       });
       const firstWrite = edits.find((e) => e.action === "write");
       if (firstWrite) setActive(firstWrite.path);
-      setChanged((c) => new Set([...c, ...edits.map((e) => e.path)]));
+      setChanged(
+        (c) =>
+          new Set([
+            ...c,
+            ...edits.map((e) => (e.action === "move" ? (e.toPath ?? e.path) : e.path)),
+          ]),
+      );
       if (edits.length) await refresh();
 
       setMessages((m) => [
@@ -485,7 +538,11 @@ export function Workbench() {
         {
           role: "assistant",
           content: res.reply,
-          edits: edits.map((e) => ({ path: e.path, action: e.action })),
+          edits: edits.map((e) => ({
+            path: e.path,
+            action: e.action,
+            ...(e.toPath ? { toPath: e.toPath } : {}),
+          })),
           provider: res.provider,
           team: res.team,
         },

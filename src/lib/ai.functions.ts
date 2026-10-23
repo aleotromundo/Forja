@@ -32,8 +32,9 @@ const InputSchema = z.object({
 
 export interface AiEdit {
   path: string;
-  action: "write" | "delete";
+  action: "write" | "delete" | "mkdir" | "move";
   content?: string;
+  toPath?: string;
 }
 export interface AiResult {
   reply: string;
@@ -65,6 +66,16 @@ function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function enabledSlots(env: Record<string, string | undefined>) {
+  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq")
+    .split(/[\s,;]+/)
+    .filter((provider): provider is "groq" | "gemini" | "openrouter" | "lovable" =>
+      ["groq", "gemini", "openrouter", "lovable"].includes(provider as never),
+    );
+  const providers = allowed.length ? allowed : ["groq"];
+  return buildSlots(env).filter((slot) => providers.includes(slot.provider));
+}
+
 const EDIT_REQUEST =
   /\b(modific[aá]|cambi[aá]|reemplaz[aá]|agreg[aá]|añad[ií]|cre[aá]|elimin[aá]|borr[aá]|correg[ií]|arregl[aá]|implement[aá]|hac[eé]|actualiz[aá]|refactoriz[aá]|aplic[aá])\b/i;
 
@@ -85,7 +96,7 @@ function naturalizeReply(text: string) {
 }
 
 export const getAiStatus = createServerFn({ method: "GET" }).handler((): AiStatus => {
-  const slots = buildSlots(process.env as Record<string, string | undefined>);
+  const slots = enabledSlots(process.env as Record<string, string | undefined>);
   return {
     connected: slots.length > 0,
     providers: [...new Set(slots.map((slot) => slot.provider))],
@@ -96,11 +107,14 @@ const SYSTEM = `Sos Forja, un asistente de programación integrado en un editor 
 El usuario trabaja sobre una carpeta local. Recibís la lista de archivos del proyecto y el contenido de los archivos relevantes.
 Cuando el usuario pida cambios, modificá los archivos directamente.
 Respondé SIEMPRE y SOLO con un objeto JSON válido con esta forma:
-{"delegate": false, "reply": "explicación breve en el idioma del usuario (markdown permitido)", "edits": [{"path": "ruta/relativa.ext", "action": "write", "content": "CONTENIDO COMPLETO DEL ARCHIVO"}]}
+{"delegate": false, "reply": "explicación breve en el idioma del usuario (markdown permitido)", "edits": [{"path": "ruta/relativa.ext", "action": "write|delete|mkdir|move", "content": "CONTENIDO COMPLETO DEL ARCHIVO", "toPath": "ruta/destino"}]}
 Reglas:
 - "content" debe ser el archivo COMPLETO final, nunca fragmentos ni "...".
 - Para borrar un archivo usá {"path": "...", "action": "delete"}.
 - Podés crear archivos nuevos con rutas nuevas.
+- Para crear una carpeta usá {"path": "ruta/de/carpeta", "action": "mkdir"}.
+- Para mover o renombrar usá {"path": "ruta/origen", "action": "move", "toPath": "ruta/destino"}.
+- Todas las rutas deben ser relativas a la carpeta autorizada, sin segmentos de traversal, sin rutas absolutas y sin salir del workspace.
 - Si solo es una pregunta, devolvé "edits": [].
 - Hacé cambios quirúrgicos: modificá solamente los archivos y las líneas necesarias para cumplir el pedido.
 - No refactorices, reformatees ni limpies código no relacionado. No cambies nombres, dependencias, arquitectura o estilos existentes sin pedirlo.
@@ -125,7 +139,7 @@ Cuando "delegate" sea false, respondé directamente y no pidas especialistas. Cu
 export const askForja = createServerFn({ method: "POST" })
   .validator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data }): Promise<AiResult> => {
-    const slots = prioritizeSlots(buildSlots(process.env as Record<string, string | undefined>));
+    const slots = prioritizeSlots(enabledSlots(process.env as Record<string, string | undefined>));
     if (slots.length === 0) {
       throw new Error(
         "No hay claves de IA configuradas. Agregá GROQ_API_KEYS, GEMINI_API_KEYS u OPENROUTER_API_KEYS.",
@@ -369,14 +383,22 @@ export const askForja = createServerFn({ method: "POST" })
             e &&
             typeof e.path === "string" &&
             isSafeRelativePath(e.path) &&
-            (e.action === "delete" || typeof e.content === "string"),
+            ["write", "delete", "mkdir", "move"].includes(e.action) &&
+            (e.action === "delete" ||
+              e.action === "mkdir" ||
+              (e.action === "move" &&
+                typeof e.toPath === "string" &&
+                isSafeRelativePath(e.toPath)) ||
+              (e.action === "write" && typeof e.content === "string")),
         )
       : [];
     const safeEdits: AiEdit[] = enforceMode(
       data.mode,
       edits.map((e): AiEdit => ({
-        ...e,
-        action: e.action === "delete" ? "delete" : "write",
+        path: e.path,
+        action: e.action,
+        ...(typeof e.content === "string" ? { content: e.content } : {}),
+        ...(typeof e.toPath === "string" ? { toPath: e.toPath } : {}),
       })),
     );
     if (safeEdits.length > 0) {

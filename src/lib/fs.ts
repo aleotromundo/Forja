@@ -105,6 +105,49 @@ export async function removeEntry(root: FileSystemDirectoryHandle, path: string)
   await dir.removeEntry(name, { recursive: true });
 }
 
+export async function moveEntry(root: FileSystemDirectoryHandle, from: string, to: string) {
+  const source = await getEntry(root, from);
+  const { parts, name } = split(to);
+  const destination = await getDir(root, parts, true);
+  await copyEntry(source, destination, name);
+  await removeEntry(root, from);
+}
+
+async function getEntry(root: FileSystemDirectoryHandle, path: string) {
+  const { parts, name } = split(path);
+  const dir = await getDir(root, parts, false);
+  try {
+    return await dir.getFileHandle(name);
+  } catch {
+    return dir.getDirectoryHandle(name);
+  }
+}
+
+async function copyEntry(
+  source: FileSystemFileHandle | FileSystemDirectoryHandle,
+  destination: FileSystemDirectoryHandle,
+  name: string,
+) {
+  if (source.kind === "file") {
+    const file = await source.getFile();
+    const target = await destination.getFileHandle(name, { create: true });
+    const writable = await target.createWritable();
+    await writable.write(await file.arrayBuffer());
+    await writable.close();
+    return;
+  }
+  const target = await destination.getDirectoryHandle(name, { create: true });
+  for await (const child of (source as DirHandle).values()) {
+    await copyEntry(
+      child.kind === "file"
+        ? await source.getFileHandle(child.name)
+        : await source.getDirectoryHandle(child.name),
+      target,
+      child.name,
+    );
+  }
+}
+
 export async function fileExists(root: FileSystemDirectoryHandle, path: string) {
   try {
     await readFile(root, path);
