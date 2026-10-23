@@ -158,3 +158,10 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Así se puede agregar una clave nueva en Vercel sin volver a abrir ni reescribir la variable que ya contiene otras claves.
 - Se actualizó README y AGENTS con el formato recomendado.
 - Tests, TypeScript, lint y build pasaron: 30 tests.
+
+### Cambio 17 — Fallback de modelo Gemini ante 503 global
+
+- Se confirmó que varias claves de proyectos distintos pueden recibir 503 simultáneamente cuando el modelo específico está saturado; cambiar la clave no cambia la capacidad del modelo.
+- Ante un 503 de Gemini, Forja ahora reintenta brevemente y prueba modelos alternativos (`gemini-3.6-flash` y `gemini-2.5-flash`) antes de pasar a otra clave o proveedor.
+- La respuesta informa el modelo que finalmente respondió cuando el fallback tiene éxito.
+- Tests, TypeScript, lint y build pasaron: 30 tests.

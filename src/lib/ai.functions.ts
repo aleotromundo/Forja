@@ -148,26 +148,35 @@ export const askForja = createServerFn({ method: "POST" })
               headers["HTTP-Referer"] = "https://forja.app";
               headers["X-Title"] = "Forja";
             }
+            const models =
+              slot.provider === "gemini"
+                ? [...new Set([slot.model, "gemini-3.6-flash", "gemini-2.5-flash"])]
+                : [slot.model];
             let res: Response | undefined;
-            for (let attempt = 0; attempt < 2; attempt++) {
-              const controller = new AbortController();
-              const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
-              res = await fetch(slot.url, {
-                method: "POST",
-                headers,
-                signal: controller.signal,
-                body: JSON.stringify({
-                  model: slot.model,
-                  messages: [
-                    { role: "system", content: system },
-                    { role: "system", content: context },
-                    ...convo,
-                  ],
-                  temperature: json ? 0.2 : 0.4,
-                }),
-              }).finally(() => clearTimeout(timer));
-              if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === 1) break;
-              await wait(700);
+            let model = slot.model;
+            for (const candidate of models) {
+              model = candidate;
+              for (let attempt = 0; attempt < 2; attempt++) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+                res = await fetch(slot.url, {
+                  method: "POST",
+                  headers,
+                  signal: controller.signal,
+                  body: JSON.stringify({
+                    model: candidate,
+                    messages: [
+                      { role: "system", content: system },
+                      { role: "system", content: context },
+                      ...convo,
+                    ],
+                    temperature: json ? 0.2 : 0.4,
+                  }),
+                }).finally(() => clearTimeout(timer));
+                if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === 1) break;
+                await wait(700);
+              }
+              if (res?.ok || res?.status !== 503 || candidate === models.at(-1)) break;
             }
             if (!res) throw new Error(`${slot.provider} no devolvió una respuesta`);
             if (!res.ok) {
@@ -186,6 +195,7 @@ export const askForja = createServerFn({ method: "POST" })
             }
             const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
             text = j.choices?.[0]?.message?.content ?? "";
+            if (text) return { text, provider: slot.provider, model };
           }
           if (text) return { text, provider: slot.provider, model: slot.model };
         } catch (err) {
