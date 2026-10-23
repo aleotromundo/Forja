@@ -226,12 +226,13 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full flex-col bg-panel">
-      <div className="flex h-9 items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <Sparkles className="h-3.5 w-3.5 text-ember" /> Forja IA
+      <div className="flex h-9 min-w-0 items-center gap-2 overflow-hidden px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-ember" />
+        <span className="min-w-0 truncate">Forja IA</span>
         <span
           role="status"
           title={apiLabel}
-          className="ml-1 inline-flex items-center gap-1 normal-case tracking-normal text-[10px] font-normal text-muted-foreground"
+          className="ml-1 inline-flex shrink-0 items-center gap-1 normal-case tracking-normal text-[10px] font-normal text-muted-foreground"
         >
           <span className={cn("h-1.5 w-1.5 rounded-full", apiDot)} />
           {apiStatus === "connected"
@@ -243,7 +244,7 @@ export function ChatPanel({
         <div
           role="radiogroup"
           aria-label="Modo del chat"
-          className="ml-auto flex rounded-md border p-0.5 normal-case tracking-normal"
+          className="ml-auto flex shrink-0 rounded-md border p-0.5 normal-case tracking-normal"
         >
           {(["plan", "edit"] as const).map((m) => (
             <button

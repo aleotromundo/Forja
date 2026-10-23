@@ -454,16 +454,18 @@ export function Workbench() {
           onClick={openFolder}
           className="shrink-0 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground sm:px-2"
         >
-          Abrir carpeta
+          <span className="hidden lg:inline">Abrir carpeta</span>
+          <FolderOpen className="h-3.5 w-3.5 lg:hidden" />
         </button>
         <button
           onClick={() => root && setQuickOpen(true)}
-          className="mx-auto flex min-w-0 flex-1 items-center gap-2 rounded border bg-background px-2 py-0.5 text-muted-foreground hover:border-ember sm:w-80 sm:flex-none"
+          className="mx-auto flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded border bg-background px-2 py-0.5 text-muted-foreground hover:border-ember sm:w-80 sm:flex-none"
         >
-          <Search className="h-3.5 w-3.5" /> {root ? root.name : "Forja"}{" "}
+          <Search className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 truncate">{root ? root.name : "Forja"}</span>
           <span className="ml-auto hidden font-mono sm:inline">Ctrl+P</span>
         </button>
-        <span className="w-24" />
+        <span className="hidden w-24 lg:inline-block" />
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -557,10 +559,11 @@ export function Workbench() {
             isMobile && mobilePanel !== "editor" && "hidden",
           )}
         >
-          <div className="flex h-9 shrink-0 items-center justify-end gap-1 border-b bg-panel-deep px-2">
+          <div className="flex h-9 shrink-0 items-center justify-end gap-1 overflow-x-auto border-b bg-panel-deep px-2">
             <Button
               variant="ghost"
               size="sm"
+              className="shrink-0"
               disabled={!activeTab || busy || activeTab.content === activeTab.saved}
               title="Guardar archivo (Ctrl+S)"
               onClick={() =>
@@ -568,11 +571,12 @@ export function Workbench() {
                 void save(active).catch(() => toast.error("No se pudo guardar el archivo"))
               }
             >
-              <Save /> <span className="hidden sm:inline">Guardar</span>
+              <Save /> <span className="hidden lg:inline">Guardar</span>
             </Button>
             <Button
               variant="ghost"
               size="icon"
+              className="shrink-0"
               aria-label="Deshacer"
               title="Deshacer (Ctrl+Z)"
               disabled={busy || !editHistory.current.canUndo}
@@ -583,6 +587,7 @@ export function Workbench() {
             <Button
               variant="ghost"
               size="icon"
+              className="shrink-0"
               aria-label="Rehacer"
               title="Rehacer (Ctrl+Shift+Z)"
               disabled={busy || !editHistory.current.canRedo}
@@ -593,18 +598,20 @@ export function Workbench() {
             <Button
               variant={view === "code" ? "secondary" : "ghost"}
               size="sm"
+              className="shrink-0"
               aria-pressed={view === "code"}
               onClick={() => setView("code")}
             >
-              <Code2 /> <span className="hidden sm:inline">Código</span>
+              <Code2 /> <span className="hidden lg:inline">Código</span>
             </Button>
             <Button
               variant={view === "preview" ? "secondary" : "ghost"}
               size="sm"
+              className="shrink-0"
               aria-pressed={view === "preview"}
               onClick={() => setView("preview")}
             >
-              <Globe /> <span className="hidden sm:inline">Vista previa</span>
+              <Globe /> <span className="hidden lg:inline">Vista previa</span>
             </Button>
           </div>
           <div className="min-h-0 flex-1">

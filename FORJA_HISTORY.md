@@ -111,3 +111,15 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Cada proveedor tiene un timeout de 15 segundos; los errores indican qué proveedor no respondió y el sistema puede continuar con otra clave/proveedor.
 - Se mantienen las fases visibles y el contador de tiempo en el chat.
 - Tests, TypeScript, lint y build pasaron.
+
+### Cambio 12 — Auditoría de escritorio compacto y migración de Groq
+
+- Se amplió el modo compacto hasta 1024 px para cubrir ventanas de escritorio reducidas por la consola del navegador.
+- La toolbar del editor ahora oculta etiquetas largas antes de comprimir botones, fija el ancho de cada control y permite scroll horizontal controlado.
+- La cabecera del proyecto trunca nombres largos, libera espacio en modo compacto y evita que el buscador empuje otros controles.
+- La cabecera del chat protege el título, estado y selector de modo contra compresión y solapamiento.
+- Se revisaron overlays de preview, adjuntos, popovers, tabs, explorador y controles de mensajes.
+- Se migró automáticamente el modelo retirado de Groq `llama-3.3-70b-versatile` a `openai/gpt-oss-20b`, incluso si quedó guardado en `GROQ_MODEL`.
+- Se agregó un test para impedir que el modelo retirado vuelva a usarse.
+- La documentación oficial de Groq indica que `llama-3.3-70b-versatile` fue retirado para planes gratuitos/desarrollador el 16/08/2026; Gemini y OpenRouter también documentan que modelos, límites y proveedores pueden fallar aunque la clave exista.
+- Tests, TypeScript, lint y build pasaron: 26 tests.

@@ -12,7 +12,7 @@ export interface ProviderSlot {
 const DEFAULTS: Record<ProviderName, { url: string; model: string }> = {
   groq: {
     url: "https://api.groq.com/openai/v1/chat/completions",
-    model: "llama-3.3-70b-versatile",
+    model: "openai/gpt-oss-20b",
   },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -25,6 +25,14 @@ const DEFAULTS: Record<ProviderName, { url: string; model: string }> = {
   lovable: {
     url: "https://ai.gateway.lovable.dev/v1/chat/completions",
     model: "openai/gpt-6-astra",
+  },
+};
+
+const MODEL_MIGRATIONS: Partial<Record<ProviderName, Record<string, string>>> = {
+  groq: {
+    // Retired for free/developer Groq plans on 2026-08-16.
+    "llama-3.3-70b-versatile": "openai/gpt-oss-20b",
+    "llama-3.1-8b-instant": "openai/gpt-oss-20b",
   },
 };
 
@@ -52,7 +60,8 @@ export function buildSlots(env: Env): ProviderSlot[] {
       provider: p,
       key,
       url: DEFAULTS[p].url,
-      model: env[`${up}_MODEL`] || DEFAULTS[p].model,
+      model:
+        MODEL_MIGRATIONS[p]?.[env[`${up}_MODEL`] ?? ""] ?? env[`${up}_MODEL`] ?? DEFAULTS[p].model,
     }));
   });
   const slots: ProviderSlot[] = [];

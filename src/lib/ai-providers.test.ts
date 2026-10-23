@@ -26,6 +26,11 @@ describe("ai provider rotation", () => {
     expect(rotateSlots(slots, 3).map((s) => s.key)).toEqual(["g1", "m1", "g2", "l"]);
   });
 
+  it("migrates retired Groq defaults to an active model", () => {
+    const slots = buildSlots({ GROQ_API_KEY: "g1", GROQ_MODEL: "llama-3.3-70b-versatile" });
+    expect(slots[0]?.model).toBe("openai/gpt-oss-20b");
+  });
+
   it("extracts JSON wrapped in code fences", () => {
     expect(extractJson('ok ```json\n{"reply":"hi"}\n```')).toEqual({ reply: "hi" });
   });
