@@ -175,3 +175,11 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se agregó búsqueda web opcional mediante el browser search nativo de Groq cuando el usuario pide explícitamente buscar en Internet, sin agregar latencia a consultas normales.
 - Se mantuvo el receptor único para saludos, preguntas y cambios simples; los especialistas solo se convocan cuando el receptor decide que el pedido necesita trabajo real.
 - Tests, TypeScript, lint y build pasaron: 31 tests.
+
+### Cambio 19 — Respuestas más naturales
+
+- Se ajustó el prompt general para español natural, directo y con párrafos cortos.
+- Se indicó al modelo que no use listas de guiones, asteriscos, títulos ni separadores salvo que hagan falta.
+- Se agregó una normalización segura de la respuesta visible: elimina encabezados, viñetas y negritas Markdown excesivas, pero preserva bloques de código.
+- Los objetos JSON internos y el contenido completo de archivos no se modifican; solo se limpia el texto de respuesta mostrado al usuario.
+- Tests, TypeScript, lint y build pasaron: 31 tests.

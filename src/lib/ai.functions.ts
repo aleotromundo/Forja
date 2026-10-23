@@ -63,6 +63,22 @@ function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function naturalizeReply(text: string) {
+  return text
+    .split(/(```[\s\S]*?```)/g)
+    .map((part, index) => {
+      if (index % 2 === 1) return part;
+      return part
+        .replace(/^\s*#{1,6}\s+/gm, "")
+        .replace(/^\s*[-*]\s+/gm, "")
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/__([^_\n]+)__/g, "$1")
+        .replace(/\n{3,}/g, "\n\n");
+    })
+    .join("")
+    .trim();
+}
+
 export const getAiStatus = createServerFn({ method: "GET" }).handler((): AiStatus => {
   const slots = buildSlots(process.env as Record<string, string | undefined>);
   return {
@@ -81,6 +97,10 @@ Reglas:
 - Para borrar un archivo usá {"path": "...", "action": "delete"}.
 - Podés crear archivos nuevos con rutas nuevas.
 - Si solo es una pregunta, devolvé "edits": [].
+- Escribí la respuesta como una persona: español natural, directo y amable, con párrafos cortos.
+- No uses listas con guiones o asteriscos, títulos Markdown ni separadores salvo que sean realmente necesarios.
+- No repitas la consigna ni cierres con frases genéricas. Para un saludo o una consulta simple, respondé en una o dos frases.
+- Reservá Markdown para nombres de archivos, comandos y bloques de código; no llenes la respuesta de negritas.
 - Usá rutas relativas exactamente como aparecen en la lista.
 - Cuando expliques una parte concreta del código, citá la ruta y la línea así: src/lib/archivo.ts:42. Los números "N| " que aparecen al inicio de cada línea del contexto son solo referencias: nunca los copies dentro del "content" de un edit.`;
 
@@ -268,7 +288,7 @@ export const askForja = createServerFn({ method: "POST" })
     } | null;
     if (!route || route.delegate !== true) {
       return {
-        reply: typeof route?.reply === "string" ? route.reply : receiver.text,
+        reply: naturalizeReply(typeof route?.reply === "string" ? route.reply : receiver.text),
         edits: [],
         provider: receiver.provider,
         model: receiver.model,
@@ -307,7 +327,7 @@ export const askForja = createServerFn({ method: "POST" })
     const parsed = extractJson(lead.text) as { reply?: unknown; edits?: unknown } | null;
     if (!parsed)
       return {
-        reply: lead.text,
+        reply: naturalizeReply(lead.text),
         edits: [],
         provider: lead.provider,
         model: lead.model,
@@ -323,7 +343,7 @@ export const askForja = createServerFn({ method: "POST" })
         )
       : [];
     return {
-      reply: typeof parsed.reply === "string" ? parsed.reply : "Listo.",
+      reply: naturalizeReply(typeof parsed.reply === "string" ? parsed.reply : "Listo."),
       edits: enforceMode(
         data.mode,
         edits.map((e) => ({ ...e, action: e.action === "delete" ? "delete" : "write" })),
