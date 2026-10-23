@@ -31,6 +31,12 @@ describe("ai provider rotation", () => {
     expect(slots[0]?.model).toBe("openai/gpt-oss-20b");
   });
 
+  it("accepts multiple comma-separated keys in the singular Gemini variable", () => {
+    const slots = buildSlots({ GEMINI_API_KEY: "g1, g2,g3" });
+    expect(slots.map((slot) => slot.key)).toEqual(["g1", "g2", "g3"]);
+    expect(slots.every((slot) => slot.provider === "gemini")).toBe(true);
+  });
+
   it("extracts JSON wrapped in code fences", () => {
     expect(extractJson('ok ```json\n{"reply":"hi"}\n```')).toEqual({ reply: "hi" });
   });

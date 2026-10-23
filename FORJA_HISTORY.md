@@ -142,3 +142,10 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Los errores ahora distinguen `alta demanda temporal`, `límite de solicitudes o cuota` y `respuesta de error`.
 - No se exponen claves ni se modifica la información sensible de las variables de entorno.
 - Tests, TypeScript, lint y build pasaron: 28 tests.
+
+### Cambio 15 — Claves Gemini separadas por coma
+
+- Se verificó el formato real de Vercel con una clave en `GEMINI_API_KEYS` y varias claves dentro de `GEMINI_API_KEY` separadas por comas.
+- El parser ya acepta comas, espacios, punto y coma y saltos de línea, combina ambas variables y elimina duplicados.
+- Se agregó un test específico con `GEMINI_API_KEY=g1, g2,g3`: genera tres slots Gemini independientes para rotación y fallback.
+- Tests, TypeScript, lint y build pasaron: 29 tests.
