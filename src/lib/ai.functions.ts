@@ -193,7 +193,6 @@ export const askForja = createServerFn({ method: "POST" })
                     ...new Set([
                       slot.model,
                       "gemini-3-flash-preview",
-                      "gemini-3-pro",
                     ]),
                   ]
                 : [slot.model];
