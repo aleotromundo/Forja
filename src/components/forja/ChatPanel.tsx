@@ -107,6 +107,11 @@ function relativeDate(value: string) {
   return new Date(value).toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
+// Frases que indican que el usuario quiere empezar a aplicar lo planeado.
+const APPLY_INTENT =
+  /\b(dale|hacelo|hagámoslo|hagamoslo|empecemos|empez[aá]|manos a la obra|aplic[aá]|implement[aá]|adelante|ejecut[aá])\b/i;
+const APPLY_TEXT = "Aplicá lo que acordamos hasta ahora.";
+
 export function ChatPanel({
   messages,
   busy,
@@ -136,6 +141,9 @@ export function ChatPanel({
   const [search, setSearch] = useState("");
   const [reading, setReading] = useState(false);
   const [mode, setMode] = useState<ChatMode>("plan");
+  const [applyBanner, setApplyBanner] = useState(false);
+  const [confirmApply, setConfirmApply] = useState(false);
+  const lastModeRef = useRef<ChatMode | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
@@ -214,13 +222,32 @@ export function ChatPanel({
   const send = async () => {
     const t = text.trim();
     if (!t || busy || disabled || reading) return;
+    // Venía de Planear y ahora pide empezar: pedimos confirmación antes de tocar archivos.
+    if (mode === "edit" && lastModeRef.current === "plan" && APPLY_INTENT.test(t)) {
+      setConfirmApply(true);
+      return;
+    }
     dictation.stop();
+    const sentMode = mode;
     const sent = await onSend(t, { attachments, projectPaths, mode });
     if (sent) {
+      lastModeRef.current = sentMode;
       setText("");
       setAttachments([]);
       setProjectPaths([]);
+      setApplyBanner(sentMode === "plan" && APPLY_INTENT.test(t));
     }
+  };
+
+  // Aplica el plan acordado en Modificar, sin que el usuario tenga que repetirlo.
+  const runApply = async () => {
+    setConfirmApply(false);
+    setApplyBanner(false);
+    setText("");
+    dictation.stop();
+    setMode("edit");
+    const sent = await onSend(APPLY_TEXT, { attachments: [], projectPaths: [], mode: "edit" });
+    if (sent) lastModeRef.current = "edit";
   };
 
   const copyMessage = async (content: string, index: number) => {
@@ -556,6 +583,40 @@ export function ChatPanel({
                 </Button>
               </div>
             ))}
+          </div>
+        )}
+        {applyBanner && !busy && (
+          <div className="mb-2 flex flex-wrap items-center gap-2 rounded border border-ember/40 bg-panel-deep p-2 text-xs">
+            <span className="min-w-0 flex-1 text-muted-foreground">
+              Para empezar a hacer los cambios, cambiá a Modificar.
+            </span>
+            <Button size="sm" onClick={() => void runApply()}>
+              Cambiar a Modificar y aplicar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setApplyBanner(false)}>
+              Seguir planeando
+            </Button>
+          </div>
+        )}
+        {confirmApply && (
+          <div className="mb-2 flex flex-wrap items-center gap-2 rounded border border-ember/40 bg-panel-deep p-2 text-xs">
+            <span className="min-w-0 flex-1 text-muted-foreground">
+              ¿Empezamos a aplicar el plan acordado?
+            </span>
+            <Button size="sm" onClick={() => void runApply()}>
+              Sí, aplicar
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setConfirmApply(false);
+                setText("");
+                setMode("plan");
+              }}
+            >
+              Seguir planeando
+            </Button>
           </div>
         )}
         {previewContext && (
