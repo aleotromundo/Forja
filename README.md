@@ -21,7 +21,7 @@ La idea es trabajar sobre una carpeta local sin subir el proyecto completo a un 
 
 - Node.js 22 o una versión compatible con el toolchain del proyecto.
 - Un navegador basado en Chromium con soporte para `showDirectoryPicker`, como Chrome, Edge u Opera.
-- Una o más claves de proveedores de IA, salvo que se use el fallback de Lovable AI disponible en el entorno de despliegue.
+- Una o más claves de proveedores de IA.
 
 ## Desarrollo local
 
@@ -51,8 +51,8 @@ GEMINI_API_KEYS=...
 OPENROUTER_API_KEYS=...
 GEMINI_API_KEY_1=...
 GEMINI_API_KEY_2=...
-# Orden recomendado: Groq, xAI, Gemini y Lovable si está disponible
-FORJA_ENABLED_PROVIDERS=groq,xai,gemini,lovable
+# Orden recomendado: Groq, xAI y Gemini
+FORJA_ENABLED_PROVIDERS=groq,xai,gemini
 ```
 
 Las formas singular (`GEMINI_API_KEY`), plural (`GEMINI_API_KEYS`) y numerada (`GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, etc.) se combinan y se deduplican. Las claves numeradas se ordenan por número y cada una participa como un slot independiente de rotación.
@@ -61,7 +61,7 @@ Por defecto, Forja prioriza modelos rápidos para código: Groq usa `openai/gpt-
 
 Las llamadas de IA pasan por `src/lib/ai.functions.ts`. Las claves permanecen del lado del servidor; el navegador envía solamente el contexto que el usuario selecciona para la conversación.
 
-Por defecto, Forja activa Groq, xAI, Gemini y el fallback de Lovable si `FORJA_ENABLED_PROVIDERS` no está definida. Groq se prueba primero, luego xAI/Grok, después Gemini y finalmente Lovable. Un error de un proveedor no interrumpe el flujo: se continúa con el siguiente disponible. La clave `xai-...` va en `XAI_API_KEY`, no en `GROQ_API_KEY`.
+Por defecto, Forja activa Groq, xAI y Gemini si `FORJA_ENABLED_PROVIDERS` no está definida. Groq se prueba primero, luego xAI/Grok y después Gemini. Un error de un proveedor no interrumpe el flujo: se continúa con el siguiente disponible. La clave `xai-...` va en `XAI_API_KEY`, no en `GROQ_API_KEY`.
 
 ## Privacidad y permisos
 

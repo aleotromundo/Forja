@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { generateResponse } from "@lovable.dev/ai-gateway";
 import { buildSlots, extractJson, prioritizeSlots } from "./ai-providers";
 import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
 import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_CHARS, MAX_CONTEXT_FILES } from "./chat-context";
@@ -68,12 +67,12 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function enabledSlots(env: Record<string, string | undefined>) {
   const slots = buildSlots(env);
-  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,xai,gemini,lovable")
+  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,xai,gemini")
     .split(/[\s,;]+/)
-    .filter((provider): provider is "groq" | "xai" | "gemini" | "openrouter" | "lovable" =>
-      ["groq", "xai", "gemini", "openrouter", "lovable"].includes(provider as never),
+    .filter((provider): provider is "groq" | "xai" | "gemini" | "openrouter" =>
+      ["groq", "xai", "gemini", "openrouter"].includes(provider as never),
     );
-  const providers = allowed.length ? allowed : ["groq", "xai", "gemini", "lovable"];
+  const providers = allowed.length ? allowed : ["groq", "xai", "gemini"];
   const active = slots.filter((slot) => providers.includes(slot.provider));
   // A stale or incomplete provider selector must never disable every configured key.
   return active.length ? active : slots;
@@ -145,7 +144,7 @@ export const askForja = createServerFn({ method: "POST" })
     const slots = prioritizeSlots(enabledSlots(process.env as Record<string, string | undefined>));
     if (slots.length === 0) {
       throw new Error(
-        "No hay claves de IA disponibles en este deployment. Revisá GROQ_API_KEY(S), GEMINI_API_KEY(S), OPENROUTER_API_KEY(S) o LOVABLE_API_KEY en Vercel.",
+        "No hay claves de IA disponibles en este deployment. Revisá GROQ_API_KEY(S), GEMINI_API_KEY(S), OPENROUTER_API_KEY(S) en Vercel.",
       );
     }
 
@@ -172,22 +171,7 @@ export const askForja = createServerFn({ method: "POST" })
         if (Date.now() >= deadline) continue;
         try {
           let text = "";
-          if (slot.provider === "lovable") {
-            const r = await withTimeout(
-              generateResponse({
-                model: "openai/gpt-6-astra",
-                instructions: `${system}\n\n${context}`,
-                input: convo
-                  .map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`)
-                  .join("\n\n"),
-              }),
-              slot.provider,
-            );
-            for (const item of r.output ?? []) {
-              if (item.type === "message")
-                for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
-            }
-          } else {
+          {
             const headers: Record<string, string> = {
               "Content-Type": "application/json",
               Authorization: `Bearer ${slot.key}`,
