@@ -49,6 +49,7 @@ export interface AiStatus {
 }
 
 const PROVIDER_TIMEOUT_MS = 60_000;
+const GROQ_SAFE_TOKENS = 6_000;
 const PROVIDER_BUDGET_MS = 90_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const MODEL_FALLBACK_STATUS = new Set([400, 404, 429, 500, 502, 503, 504]);
@@ -165,11 +166,16 @@ export const askForja = createServerFn({ method: "POST" })
     type Msg = { role: "system" | "user" | "assistant"; content: string };
     const call = async (system: string, convo: Msg[], order: typeof slots, json: boolean) => {
       const errors: string[] = [];
+      // Estimación gruesa: unos 3.5 caracteres por token.
+      const approxTokens =
+        (system.length + context.length + convo.reduce((n, m) => n + m.content.length, 0)) / 3.5;
       const providerDeadlines = new Map<string, number>();
       for (const slot of order) {
         const deadline = providerDeadlines.get(slot.provider) ?? Date.now() + PROVIDER_BUDGET_MS;
         providerDeadlines.set(slot.provider, deadline);
         if (Date.now() >= deadline) continue;
+        // Groq free tier limita ~8000 tokens por minuto: un pedido más grande siempre falla con 413.
+        if (slot.provider === "groq" && approxTokens > GROQ_SAFE_TOKENS) continue;
         try {
           let text = "";
           {
@@ -188,8 +194,6 @@ export const askForja = createServerFn({ method: "POST" })
                       slot.model,
                       "gemini-3-flash-preview",
                       "gemini-3-pro",
-                      "gemini-3-flash-8b",
-                      "gemini-3-flash",
                     ]),
                   ]
                 : [slot.model];

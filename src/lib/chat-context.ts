@@ -9,8 +9,9 @@ export interface ChatExtras {
 }
 
 export const MAX_CONTEXT_FILES = 40;
-export const MAX_CONTEXT_FILE_CHARS = 60_000;
-export const MAX_CONTEXT_CHARS = 120_000;
+// Contexto más chico: pedidos grandes hacen que Gemini tarde más de 60s y Groq rechace por tamaño.
+export const MAX_CONTEXT_FILE_CHARS = 30_000;
+export const MAX_CONTEXT_CHARS = 60_000;
 
 export async function collectChatContext(
   explicit: ChatExtras,
