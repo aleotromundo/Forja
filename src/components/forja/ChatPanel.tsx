@@ -130,6 +130,7 @@ export function ChatPanel({
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [projectPaths, setProjectPaths] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -148,6 +149,11 @@ export function ChatPanel({
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
+  }, [busy]);
+
+  // Al terminar la respuesta, el cuadro de texto vuelve a estar listo para escribir.
+  useEffect(() => {
+    if (!busy) composer.current?.focus();
   }, [busy]);
 
   const dictation = useDictation((words) =>
@@ -573,6 +579,7 @@ export function ChatPanel({
         )}
         <div className="rounded-md border bg-background focus-within:ember-glow">
           <textarea
+            ref={composer}
             aria-label="Mensaje a Forja"
             value={text}
             onChange={(e) => setText(e.target.value)}
