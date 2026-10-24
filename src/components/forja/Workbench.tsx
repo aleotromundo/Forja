@@ -43,7 +43,11 @@ import { Explorer } from "./Explorer";
 import { PreviewPane } from "./PreviewPane";
 import { Button } from "@/components/ui/button";
 import { EditHistory, type HistoryEntry } from "@/lib/edit-history";
-import { collectChatContext, type ChatExtras } from "@/lib/chat-context";
+import {
+  collectChatContext,
+  MAX_CONTEXT_FILE_CHARS,
+  type ChatExtras,
+} from "@/lib/chat-context";
 import { editProblems } from "@/lib/edit-checks";
 import {
   chatSessionTitle,
@@ -385,7 +389,10 @@ export function Workbench() {
               content: await readFile(root, path).catch(() => null),
             })),
           )
-        ).filter((f): f is { path: string; content: string } => f.content !== null);
+        ).filter(
+          (f): f is { path: string; content: string } =>
+            f.content !== null && f.content.length <= MAX_CONTEXT_FILE_CHARS,
+        );
         if (extra.length > 0) {
           setRequestPhase("consulting");
           res = await ask({
