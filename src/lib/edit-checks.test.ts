@@ -12,6 +12,12 @@ describe("edit checks", () => {
     ).toEqual([]);
   });
 
+  it("blocks writes with empty content", () => {
+    expect(editProblems([{ path: "src/a.tsx", action: "write", content: "" }])).toEqual([
+      "src/a.tsx: llegó con contenido vacío; no se aplica para no borrar el archivo",
+    ]);
+  });
+
   it("reports problems only for write edits in code files", () => {
     const problems = editProblems([
       { path: "src/a.tsx", action: "write", content: "useState(0)" },

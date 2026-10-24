@@ -119,6 +119,9 @@ Reglas:
 - Para mover o renombrar usá {"path": "ruta/origen", "action": "move", "toPath": "ruta/destino"}.
 - Todas las rutas deben ser relativas a la carpeta autorizada, sin segmentos de traversal, sin rutas absolutas y sin salir del workspace.
 - Si solo es una pregunta, devolvé "edits": [].
+- Si el usuario pidió un cambio, aplicalo con "edits" en esta misma respuesta. No pidas permiso ni confirmación para editar, salvo que el pedido sea ambiguo.
+- Nunca escribas en "reply" tu razonamiento, planes internos ni JSON. "reply" es solo la explicación para el usuario.
+- Nunca mandes un "write" con "content" vacío.
 - Nunca le pidas al usuario que pegue el contenido de un archivo. Si necesitás un archivo que no está en el contexto, nombralo con su ruta exacta en "reply": Forja lo carga y te responde de nuevo. Si podés crearlo o reemplazarlo completo sin verlo, hacelo y explicá la decisión.
 - Hacé cambios quirúrgicos: modificá solamente los archivos y las líneas necesarias para cumplir el pedido.
 - No refactorices, reformatees ni limpies código no relacionado. No cambies nombres, dependencias, arquitectura o estilos existentes sin pedirlo.

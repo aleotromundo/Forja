@@ -32,6 +32,10 @@ export function editProblems(edits: { path: string; action: string; content?: st
   const problems: string[] = [];
   for (const edit of edits) {
     if (edit.action !== "write" || typeof edit.content !== "string") continue;
+    if (edit.content.trim() === "") {
+      problems.push(`${edit.path}: llegó con contenido vacío; no se aplica para no borrar el archivo`);
+      continue;
+    }
     if (!/\.(tsx?|jsx?)$/.test(edit.path)) continue;
     for (const hook of missingReactImports(edit.content)) {
       problems.push(`${edit.path}: usa ${hook} sin importarlo de "react"`);
