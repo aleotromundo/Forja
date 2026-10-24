@@ -49,8 +49,8 @@ export interface AiStatus {
   providers: string[];
 }
 
-const PROVIDER_TIMEOUT_MS = 8_000;
-const PROVIDER_BUDGET_MS = 12_000;
+const PROVIDER_TIMEOUT_MS = 60_000;
+const PROVIDER_BUDGET_MS = 90_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const MODEL_FALLBACK_STATUS = new Set([400, 404, 429, 500, 502, 503, 504]);
 
@@ -205,7 +205,6 @@ export const askForja = createServerFn({ method: "POST" })
                       "gemini-3-pro",
                       "gemini-3-flash-8b",
                       "gemini-3-flash",
-                      "gemini-1.5-flash",
                     ]),
                   ]
                 : [slot.model];
