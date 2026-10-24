@@ -1,6 +1,6 @@
 // Pure provider-rotation logic (no secrets here; env is passed in).
 
-export type ProviderName = "groq" | "xai" | "gemini" | "openrouter" | "lovable";
+export type ProviderName = "groq" | "gemini" | "openrouter" | "lovable";
 
 export interface ProviderSlot {
   provider: ProviderName;
@@ -14,10 +14,6 @@ const DEFAULTS: Record<ProviderName, { url: string; model: string }> = {
   groq: {
     url: "https://api.groq.com/openai/v1/chat/completions",
     model: "openai/gpt-oss-20b",
-  },
-  xai: {
-    url: "https://api.x.ai/v1/chat/completions",
-    model: "grok-4.3",
   },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -81,7 +77,7 @@ function keysForProvider(env: Env, provider: ProviderName) {
  * so that load spreads over every free provider. Lovable AI is always last (fallback).
  */
 export function buildSlots(env: Env): ProviderSlot[] {
-  const groups: ProviderSlot[][] = (["groq", "xai", "gemini", "openrouter"] as const).map((p) => {
+  const groups: ProviderSlot[][] = (["groq", "gemini", "openrouter"] as const).map((p) => {
     const up = p.toUpperCase();
     return keysForProvider(env, p).map(({ key, envVar }) => ({
       provider: p,
@@ -122,7 +118,7 @@ export function rotateSlots(slots: ProviderSlot[], start: number): ProviderSlot[
 
 /** Keep the fastest primary provider first; rotate keys only inside each provider. */
 export function prioritizeSlots(slots: ProviderSlot[]): ProviderSlot[] {
-  const order: ProviderName[] = ["groq", "xai", "gemini", "openrouter", "lovable"];
+  const order: ProviderName[] = ["groq", "gemini", "openrouter", "lovable"];
   return order.flatMap((provider) => slots.filter((slot) => slot.provider === provider));
 }
 
