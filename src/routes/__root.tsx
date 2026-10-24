@@ -9,7 +9,7 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 
