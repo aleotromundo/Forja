@@ -205,7 +205,6 @@ export const askForja = createServerFn({ method: "POST" })
                       "gemini-3-pro",
                       "gemini-3-flash-8b",
                       "gemini-3-flash",
-                      "gemini-1.5-flash",
                     ]),
                   ]
                 : [slot.model];
