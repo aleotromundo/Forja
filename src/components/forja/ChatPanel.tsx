@@ -135,7 +135,7 @@ export function ChatPanel({
   const [projectPaths, setProjectPaths] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [reading, setReading] = useState(false);
-  const [mode, setMode] = useState<ChatMode>("plan");
+  const [mode, setMode] = useState<ChatMode>("edit");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
 

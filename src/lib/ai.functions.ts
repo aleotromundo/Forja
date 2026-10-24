@@ -80,7 +80,7 @@ function enabledSlots(env: Record<string, string | undefined>) {
 }
 
 const EDIT_REQUEST =
-  /\b(modific[aá]|cambi[aá]|reemplaz[aá]|agreg[aá]|añad[ií]|cre[aá]|elimin[aá]|borr[aá]|correg[ií]|arregl[aá]|implement[aá]|hac[eé]|actualiz[aá]|refactoriz[aá]|aplic[aá])\b/i;
+  /\b(modific[aá]|cambi[aá]|reemplaz[aá]|agreg[aá]|añad[ií]|cre[aá]|elimin[aá]|borr[aá]|correg[ií]|arregl[aá]|implement[aá]|hac[eé]|actualiz[aá]|refactoriz[aá]|aplic[aá]|instal[aá]|config[uú]r[aá]|sum[aá]|prepar[aá]|quiero que|que se pueda|que funcione)\b/i;
 
 function naturalizeReply(text: string) {
   return text
@@ -119,6 +119,7 @@ Reglas:
 - Para mover o renombrar usá {"path": "ruta/origen", "action": "move", "toPath": "ruta/destino"}.
 - Todas las rutas deben ser relativas a la carpeta autorizada, sin segmentos de traversal, sin rutas absolutas y sin salir del workspace.
 - Si solo es una pregunta, devolvé "edits": [].
+- Nunca le pidas al usuario que pegue el contenido de un archivo. Si necesitás ver un archivo que no está en el contexto, decí en "reply" qué archivo necesitás y que lo abra en una pestaña; si podés crearlo o reemplazarlo completo sin verlo, hacelo y explicá la decisión.
 - Hacé cambios quirúrgicos: modificá solamente los archivos y las líneas necesarias para cumplir el pedido.
 - No refactorices, reformatees ni limpies código no relacionado. No cambies nombres, dependencias, arquitectura o estilos existentes sin pedirlo.
 - Antes de editar, identificá qué puede romperse: imports, tipos, contratos, rutas, estado, estilos y comportamiento relacionado.
