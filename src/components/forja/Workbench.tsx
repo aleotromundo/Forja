@@ -44,6 +44,7 @@ import { PreviewPane } from "./PreviewPane";
 import { Button } from "@/components/ui/button";
 import { EditHistory, type HistoryEntry } from "@/lib/edit-history";
 import { collectChatContext, type ChatExtras } from "@/lib/chat-context";
+import { editProblems } from "@/lib/edit-checks";
 import {
   chatSessionTitle,
   createChatSession,
@@ -409,6 +410,20 @@ export function Workbench() {
           isSafeRelativePath(edit.path) &&
           (edit.action !== "move" || (edit.toPath && isSafeRelativePath(edit.toPath))),
       );
+      // Revisión antes de aplicar: si el cambio rompe imports conocidos, no se aplica.
+      const problems = editProblems(edits);
+      if (problems.length > 0) {
+        setMessages((current) => [
+          ...current,
+          {
+            role: "assistant",
+            content: `No apliqué los cambios porque romperían la página:\n${problems.join("\n")}`,
+            provider: res.provider,
+            team: res.team,
+          },
+        ]);
+        return true;
+      }
       if (
         edits.length > 0 &&
         !window.confirm(
