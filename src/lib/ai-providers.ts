@@ -1,6 +1,6 @@
 // Pure provider-rotation logic (no secrets here; env is passed in).
 
-export type ProviderName = "groq" | "xai" | "gemini" | "openrouter" | "lovable";
+export type ProviderName = "groq" | "gemini" | "openrouter";
 
 export interface ProviderSlot {
   provider: ProviderName;
@@ -15,10 +15,6 @@ const DEFAULTS: Record<ProviderName, { url: string; model: string }> = {
     url: "https://api.groq.com/openai/v1/chat/completions",
     model: "openai/gpt-oss-20b",
   },
-  xai: {
-    url: "https://api.x.ai/v1/chat/completions",
-    model: "grok-4.3",
-  },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     model: "gemini-3-flash-preview",
@@ -26,10 +22,6 @@ const DEFAULTS: Record<ProviderName, { url: string; model: string }> = {
   openrouter: {
     url: "https://openrouter.ai/api/v1/chat/completions",
     model: "openai/gpt-oss-20b",
-  },
-  lovable: {
-    url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    model: "openai/gpt-6-astra",
   },
 };
 
@@ -78,10 +70,10 @@ function keysForProvider(env: Env, provider: ProviderName) {
 
 /**
  * Build slots interleaved across providers (groq#1, gemini#1, openrouter#1, groq#2, ...)
- * so that load spreads over every free provider. Lovable AI is always last (fallback).
+ * so that load spreads over every free provider.
  */
 export function buildSlots(env: Env): ProviderSlot[] {
-  const groups: ProviderSlot[][] = (["groq", "xai", "gemini", "openrouter"] as const).map((p) => {
+  const groups: ProviderSlot[][] = (["groq", "gemini", "openrouter"] as const).map((p) => {
     const up = p.toUpperCase();
     return keysForProvider(env, p).map(({ key, envVar }) => ({
       provider: p,
@@ -99,30 +91,19 @@ export function buildSlots(env: Env): ProviderSlot[] {
       const s = g[i];
       if (s) slots.push(s);
     }
-  if (env["LOVABLE_API_KEY"]) {
-    slots.push({
-      provider: "lovable",
-      key: env["LOVABLE_API_KEY"],
-      envVar: "LOVABLE_API_KEY",
-      url: DEFAULTS.lovable.url,
-      model: env["LOVABLE_MODEL"] || DEFAULTS.lovable.model,
-    });
-  }
   return slots;
 }
 
-/** Rotate rotatable slots to start at `start`; the lovable fallback stays last. */
+/** Rotate the slots to start at `start`. */
 export function rotateSlots(slots: ProviderSlot[], start: number): ProviderSlot[] {
-  const rot = slots.filter((s) => s.provider !== "lovable");
-  const tail = slots.filter((s) => s.provider === "lovable");
-  if (rot.length === 0) return tail;
-  const i = ((start % rot.length) + rot.length) % rot.length;
-  return [...rot.slice(i), ...rot.slice(0, i), ...tail];
+  if (slots.length === 0) return [];
+  const i = ((start % slots.length) + slots.length) % slots.length;
+  return [...slots.slice(i), ...slots.slice(0, i)];
 }
 
 /** Keep the fastest primary provider first; rotate keys only inside each provider. */
 export function prioritizeSlots(slots: ProviderSlot[]): ProviderSlot[] {
-  const order: ProviderName[] = ["groq", "xai", "gemini", "openrouter", "lovable"];
+  const order: ProviderName[] = ["groq", "gemini", "openrouter"];
   return order.flatMap((provider) => slots.filter((slot) => slot.provider === provider));
 }
 

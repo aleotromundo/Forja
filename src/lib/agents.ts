@@ -61,7 +61,7 @@ Analizá el pedido del usuario y el proyecto SOLO desde tu especialidad. Respond
 export function modeInstructions(mode: ChatMode): string {
   return mode === "plan"
     ? `MODO PLANEAR: estás conversando ideas con el usuario. NO modifiques archivos bajo ningún concepto: "edits" debe ser siempre []. Analizá, proponé opciones, hacé preguntas y armá planes con pasos concretos y los archivos que tocarías.`
-    : `MODO MODIFICAR: tenés permiso para editar archivos. Si el usuario solo conversa o pregunta, respondé sin edits. Cuando pida cambios o diga que avances con lo planeado en la conversación, implementalo con edits completos.`;
+    : `MODO MODIFICAR: tenés permiso para editar archivos. Si el usuario solo conversa o pregunta, respondé sin edits. Cuando pida cambios o diga que avances con lo planeado en la conversación, implementalo con edits completos. Si pide aplicar lo acordado ("aplicá", "dale", "hacelo"), tomá el último plan acordado del historial e implementalo entero, sin pedirle que lo repita.`;
 }
 
 /** Plan mode never touches files, whatever the model returned. */

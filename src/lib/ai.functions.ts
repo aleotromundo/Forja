@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { generateResponse } from "@lovable.dev/ai-gateway";
 import { buildSlots, extractJson, prioritizeSlots } from "./ai-providers";
 import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
 import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_CHARS, MAX_CONTEXT_FILES } from "./chat-context";
@@ -49,8 +48,8 @@ export interface AiStatus {
   providers: string[];
 }
 
-const PROVIDER_TIMEOUT_MS = 8_000;
-const PROVIDER_BUDGET_MS = 12_000;
+const PROVIDER_TIMEOUT_MS = 60_000;
+const PROVIDER_BUDGET_MS = 90_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const MODEL_FALLBACK_STATUS = new Set([400, 404, 429, 500, 502, 503, 504]);
 
@@ -68,12 +67,12 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function enabledSlots(env: Record<string, string | undefined>) {
   const slots = buildSlots(env);
-  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,xai,gemini,lovable")
+  const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,gemini")
     .split(/[\s,;]+/)
-    .filter((provider): provider is "groq" | "xai" | "gemini" | "openrouter" | "lovable" =>
-      ["groq", "xai", "gemini", "openrouter", "lovable"].includes(provider as never),
+    .filter((provider): provider is "groq" | "gemini" | "openrouter" =>
+      ["groq", "gemini", "openrouter"].includes(provider as never),
     );
-  const providers = allowed.length ? allowed : ["groq", "xai", "gemini", "lovable"];
+  const providers = allowed.length ? allowed : ["groq", "gemini"];
   const active = slots.filter((slot) => providers.includes(slot.provider));
   // A stale or incomplete provider selector must never disable every configured key.
   return active.length ? active : slots;
@@ -119,6 +118,7 @@ Reglas:
 - Para mover o renombrar usá {"path": "ruta/origen", "action": "move", "toPath": "ruta/destino"}.
 - Todas las rutas deben ser relativas a la carpeta autorizada, sin segmentos de traversal, sin rutas absolutas y sin salir del workspace.
 - Si solo es una pregunta, devolvé "edits": [].
+- Nunca le pidas al usuario que pegue el contenido de un archivo. Si necesitás un archivo que no está en el contexto, nombralo con su ruta exacta en "reply": Forja lo carga y te responde de nuevo. Si podés crearlo o reemplazarlo completo sin verlo, hacelo y explicá la decisión.
 - Hacé cambios quirúrgicos: modificá solamente los archivos y las líneas necesarias para cumplir el pedido.
 - No refactorices, reformatees ni limpies código no relacionado. No cambies nombres, dependencias, arquitectura o estilos existentes sin pedirlo.
 - Antes de editar, identificá qué puede romperse: imports, tipos, contratos, rutas, estado, estilos y comportamiento relacionado.
@@ -145,7 +145,7 @@ export const askForja = createServerFn({ method: "POST" })
     const slots = prioritizeSlots(enabledSlots(process.env as Record<string, string | undefined>));
     if (slots.length === 0) {
       throw new Error(
-        "No hay claves de IA disponibles en este deployment. Revisá GROQ_API_KEY(S), GEMINI_API_KEY(S), OPENROUTER_API_KEY(S) o LOVABLE_API_KEY en Vercel.",
+        "No hay claves de IA disponibles en este deployment. Revisá GROQ_API_KEY(S), GEMINI_API_KEY(S), OPENROUTER_API_KEY(S) en Vercel.",
       );
     }
 
@@ -172,22 +172,7 @@ export const askForja = createServerFn({ method: "POST" })
         if (Date.now() >= deadline) continue;
         try {
           let text = "";
-          if (slot.provider === "lovable") {
-            const r = await withTimeout(
-              generateResponse({
-                model: "openai/gpt-6-astra",
-                instructions: `${system}\n\n${context}`,
-                input: convo
-                  .map((m) => `${m.role === "user" ? "USUARIO" : "ASISTENTE"}: ${m.content}`)
-                  .join("\n\n"),
-              }),
-              slot.provider,
-            );
-            for (const item of r.output ?? []) {
-              if (item.type === "message")
-                for (const c of item.content ?? []) if (c.type === "output_text") text += c.text;
-            }
-          } else {
+          {
             const headers: Record<string, string> = {
               "Content-Type": "application/json",
               Authorization: `Bearer ${slot.key}`,
@@ -205,7 +190,6 @@ export const askForja = createServerFn({ method: "POST" })
                       "gemini-3-pro",
                       "gemini-3-flash-8b",
                       "gemini-3-flash",
-                      "gemini-1.5-flash",
                     ]),
                   ]
                 : [slot.model];

@@ -363,7 +363,7 @@ export function Workbench() {
       setMessages(history);
       setRequestPhase("consulting");
 
-      const res = await ask({
+      let res = await ask({
         data: {
           messages: history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
           files: ctx,
@@ -372,6 +372,32 @@ export function Workbench() {
           mode: extras.mode ?? "edit",
         },
       });
+      // Si la IA nombró un archivo que no tenía en contexto, lo cargamos y le pedimos de nuevo.
+      const mentioned = files.filter(
+        (f) => !ctx.some((c) => c.path === f) && res.reply.includes(f),
+      );
+      if (res.edits.length === 0 && mentioned.length > 0) {
+        const extra = (
+          await Promise.all(
+            mentioned.slice(0, 3).map(async (path) => ({
+              path,
+              content: await readFile(root, path).catch(() => null),
+            })),
+          )
+        ).filter((f): f is { path: string; content: string } => f.content !== null);
+        if (extra.length > 0) {
+          setRequestPhase("consulting");
+          res = await ask({
+            data: {
+              messages: history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
+              files: [...ctx, ...extra],
+              tree: files.slice(0, 3000),
+              activePath: active,
+              mode: extras.mode ?? "edit",
+            },
+          });
+        }
+      }
       setApiStatus("connected");
       setRequestPhase("applying");
       setLastProvider(`${res.provider} · ${res.model}`);
