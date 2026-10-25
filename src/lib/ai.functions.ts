@@ -4,6 +4,7 @@ import { buildSlots, extractJson, prioritizeSlots } from "./ai-providers";
 import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
 import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_CHARS, MAX_CONTEXT_FILES } from "./chat-context";
 import { isSafeRelativePath } from "./paths";
+import { WORK_STYLE } from "./work-style";
 import { friendlyFailure, logFailure } from "./friendly-errors";
 
 const InputSchema = z.object({
@@ -325,7 +326,7 @@ export const askForja = createServerFn({ method: "POST" })
       }
     }
     const receiver = await call(
-      `${SYSTEM}\n\n${RECEIVER_ROLE}\n${modeInstructions(data.mode)}`,
+      `${SYSTEM}\n\n${WORK_STYLE}\n\n${RECEIVER_ROLE}\n${modeInstructions(data.mode)}`,
       data.messages,
       slots,
       true,
@@ -368,7 +369,7 @@ export const askForja = createServerFn({ method: "POST" })
 
     // The receiver returns as lead and integrates the specialists' notes.
     const lead = await call(
-      `${SYSTEM}\n\n${LEAD_ROLE}\n${modeInstructions(data.mode)}${teamNotes}`,
+      `${SYSTEM}\n\n${WORK_STYLE}\n\n${LEAD_ROLE}\n${modeInstructions(data.mode)}${teamNotes}`,
       data.messages,
       slots,
       true,
@@ -422,7 +423,7 @@ Usá approved=false si falta algo, sobra un archivo, el contenido está incomple
 PEDIDO ORIGINAL:\n${lastUser}\n\nRESPUESTA DEL LÍDER:\n${typeof parsed.reply === "string" ? parsed.reply : ""}\n\nEDITS PROPUESTOS:\n${JSON.stringify(safeEdits)}`;
       try {
         const verification = await call(
-          `${SYSTEM}\n\nMODO VERIFICACIÓN: no generes edits. Tu única tarea es revisar la propuesta y devolver el JSON de verificación solicitado.`,
+          `${SYSTEM}\n\n${WORK_STYLE}\n\nMODO VERIFICACIÓN: no generes edits. Tu única tarea es revisar la propuesta y devolver el JSON de verificación solicitado.`,
           [{ role: "user", content: verificationPrompt }],
           prioritizeSlots(slots),
           true,

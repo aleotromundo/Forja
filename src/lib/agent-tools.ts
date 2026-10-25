@@ -1,4 +1,5 @@
 // Herramientas del agente local: definición para el modelo y ruta en el agente.
+import { WORK_STYLE } from "./work-style";
 
 export const APPROVAL_REQUIRED = new Set([
   "write_file",
@@ -103,4 +104,6 @@ Reglas:
 - Si generaste un archivo que el usuario tiene que ver, abrilo con open_file. Para generar archivos con un script: escribí el script, corrélo con run_command y después abrí el resultado.
 - Si necesitás generar algo con un script: escribí el script con write_file y después corrélo con run_command (node ruta/script.js o python ruta/script.py). Nunca menciones un script, comando o archivo que no hayas creado o que no exista en el proyecto.
 - Memoria del proyecto: si existe .forja/memoria.md, leela al empezar y respetala. Actualizala con write_file (contenido completo) cuando aprendas algo duradero.
-- Cuando termines, respondé en español, directo y breve, sin listas largas ni JSON. Contá qué cambiaste y qué verificaste.`;
+- Cuando termines, respondé en español, directo y breve, sin listas largas ni JSON. Contá qué cambiaste y qué verificaste.
+
+${WORK_STYLE}`;
