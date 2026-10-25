@@ -66,7 +66,7 @@ export const AGENT_TOOLS = [
   ),
   fn(
     "run_command",
-    "Ejecuta un comando permitido: git status/diff/log, npm run|test, bun run|test, npx tsc, npx vitest. Requiere aprobación.",
+    "Ejecuta un comando permitido: git status/diff/log, npm run|test, bun run|test, npx tsc, npx vitest, o node, python o python3 con un script del proyecto (.js, .mjs o .py). Requiere aprobación.",
     obj({ command: str("comando completo, sin pipes ni encadenados") }, ["command"]),
   ),
 ];
@@ -83,5 +83,6 @@ Reglas:
 - No pidas al usuario que pegue archivos: leelos con read_file.
 - Las acciones que modifican el proyecto las aprueba el usuario; si una fue rechazada, no insistas: explicá y ofrecé alternativas.
 - No hagas push ni instales paquetes.
+- Si necesitás generar algo con un script: escribí el script con write_file y después corrélo con run_command (node ruta/script.js o python ruta/script.py). Nunca menciones un script, comando o archivo que no hayas creado o que no exista en el proyecto.
 - Memoria del proyecto: si existe .forja/memoria.md, leela al empezar y respetala. Actualizala con write_file (contenido completo) cuando aprendas algo duradero.
 - Cuando termines, respondé en español, directo y breve, sin listas largas ni JSON. Contá qué cambiaste y qué verificaste.`;

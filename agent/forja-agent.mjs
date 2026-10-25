@@ -31,6 +31,11 @@ export const ALLOWED_COMMANDS = [
   ["npx", "tsc"],
   ["npx", "vitest"],
 ];
+const INTERPRETERS = {
+  node: { test: /\.m?js$/i, label: ".js o .mjs" },
+  python: { test: /\.py$/i, label: ".py" },
+  python3: { test: /\.py$/i, label: ".py" },
+};
 const FORBIDDEN = /[&|;<>`$()'"\\*?{}\n\r]/;
 
 export function resolveInside(root, rel) {
@@ -49,6 +54,15 @@ export function parseCommand(line) {
   if (typeof line !== "string" || line.length > 300) throw new Error("Comando inválido.");
   if (FORBIDDEN.test(line)) throw new Error("El comando tiene caracteres no permitidos.");
   const parts = line.trim().split(/\s+/).filter(Boolean);
+  // Solo "node <script.js|mjs>" o "python|python3 <script.py>": un archivo, sin opciones extra.
+  const interpreter = INTERPRETERS[parts[0]];
+  if (interpreter) {
+    const script = parts[1] ?? "";
+    if (parts.length !== 2 || !interpreter.test.test(script) || script.startsWith("-") || script.includes("..")) {
+      throw new Error(`Solo se puede ejecutar ${parts[0]} con un archivo ${interpreter.label} del proyecto.`);
+    }
+    return parts;
+  }
   const allowed = ALLOWED_COMMANDS.some((prefix) => prefix.every((p, i) => parts[i] === p));
   if (!allowed) throw new Error(`Comando no permitido: ${parts.slice(0, 2).join(" ") || "(vacío)"}`);
   return parts;
@@ -216,6 +230,12 @@ export function createAgent({ root, token }) {
     "/shell/run": async ({ command }) => {
       const parts = parseCommand(command);
       const [file, ...args] = parts;
+      if (INTERPRETERS[file]) {
+        // El script tiene que estar dentro del proyecto (y no ser un enlace que salga de él).
+        const full = await safe(args[0]);
+        if (!fsSync.existsSync(full)) throw new Error("El script no existe.");
+        return runProcess(realRoot, file, [path.relative(realRoot, full)]);
+      }
       // En Windows npm y npx son scripts .cmd: hace falta shell, y ya validamos que no haya metacaracteres.
       const useShell = process.platform === "win32";
       return runProcess(realRoot, file, args, { shell: useShell });

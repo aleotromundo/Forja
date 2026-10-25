@@ -20,7 +20,15 @@ test("parseCommand allows only read and project commands", () => {
   assert.deepEqual(parseCommand("git status"), ["git", "status"]);
   assert.deepEqual(parseCommand("npm run build"), ["npm", "run", "build"]);
   assert.throws(() => parseCommand("git push origin main"), /no permitido/);
-  assert.throws(() => parseCommand("node -e 1"), /no permitido/);
+  assert.throws(() => parseCommand("node -e 1"), /node con un archivo/);
+  assert.deepEqual(parseCommand("node scripts/resumen.js"), ["node", "scripts/resumen.js"]);
+  assert.throws(() => parseCommand("node scripts/x.js extra"), /node con un archivo/);
+  assert.throws(() => parseCommand("node ../x.js"), /node con un archivo/);
+  assert.throws(() => parseCommand("node x.txt"), /node con un archivo/);
+  assert.deepEqual(parseCommand("python3 tools/resumen.py"), ["python3", "tools/resumen.py"]);
+  assert.deepEqual(parseCommand("python x.py"), ["python", "x.py"]);
+  assert.throws(() => parseCommand("python -c 1"), /python con un archivo/);
+  assert.throws(() => parseCommand("python3 ../x.py"), /python3 con un archivo/);
   assert.throws(() => parseCommand("npm install evil"), /no permitido/);
   assert.throws(() => parseCommand("git status; rm -rf /"), /no permitidos/);
   assert.throws(() => parseCommand("npm run build && curl x"), /no permitidos/);
