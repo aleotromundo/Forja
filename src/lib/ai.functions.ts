@@ -41,6 +41,7 @@ export interface AiResult {
   provider: string;
   model: string;
   team: string[];
+  more?: boolean;
 }
 
 export interface AiStatus {
@@ -80,7 +81,7 @@ function enabledSlots(env: Record<string, string | undefined>) {
 }
 
 const EDIT_REQUEST =
-  /\b(modific[aá]|cambi[aá]|reemplaz[aá]|agreg[aá]|añad[ií]|cre[aá]|elimin[aá]|borr[aá]|correg[ií]|arregl[aá]|implement[aá]|hac[eé]|actualiz[aá]|refactoriz[aá]|aplic[aá])\b/i;
+  /\b(modific[aá]|cambi[aá]|reemplaz[aá]|agreg[aá]|añad[ií]|cre[aá]|elimin[aá]|borr[aá]|correg[ií]|arregl[aá]|implement[aá]|hac[eé]|actualiz[aá]|refactoriz[aá]|aplic[aá]|continu[aá])(?![\wáéíóúñ])/i;
 
 function naturalizeReply(text: string) {
   return text
@@ -110,7 +111,7 @@ const SYSTEM = `Sos Forja, un asistente de programación integrado en un editor 
 El usuario trabaja sobre una carpeta local. Recibís la lista de archivos del proyecto y el contenido de los archivos relevantes.
 Cuando el usuario pida cambios, modificá los archivos directamente.
 Respondé SIEMPRE y SOLO con un objeto JSON válido con esta forma:
-{"delegate": false, "reply": "explicación breve en el idioma del usuario (markdown permitido)", "edits": [{"path": "ruta/relativa.ext", "action": "write|delete|mkdir|move", "content": "CONTENIDO COMPLETO DEL ARCHIVO", "toPath": "ruta/destino"}]}
+{"delegate": false, "reply": "explicación breve en el idioma del usuario (markdown permitido)", "edits": [{"path": "ruta/relativa.ext", "action": "write|delete|mkdir|move", "content": "CONTENIDO COMPLETO DEL ARCHIVO", "toPath": "ruta/destino"}], "continuar": false}
 Reglas:
 - "content" debe ser el archivo COMPLETO final, nunca fragmentos ni "...".
 - Para borrar un archivo usá {"path": "...", "action": "delete"}.
@@ -122,6 +123,8 @@ Reglas:
 - Si el usuario pidió un cambio, aplicalo con "edits" en esta misma respuesta. No pidas permiso ni confirmación para editar, salvo que el pedido sea ambiguo.
 - Nunca escribas en "reply" tu razonamiento, planes internos ni JSON. "reply" es solo la explicación para el usuario.
 - Nunca mandes un "write" con "content" vacío.
+- Si el pedido necesita varios pasos, hacé solo el primer paso con edits y poné "continuar": true. Forja aplica tus cambios, te cuenta qué quedó hecho y te pide el siguiente paso. Cuando no quede nada, poné "continuar": false.
+- Memoria del proyecto: si existe .forja/memoria.md, es la memoria del proyecto y tiene que respetarse. Cuando aprendas algo duradero (decisiones, convenciones, qué está hecho y qué falta), actualizalo con un "write" que traiga el contenido completo: lo anterior más lo nuevo. Mantenelo corto.
 - Nunca le pidas al usuario que pegue el contenido de un archivo. Si necesitás un archivo que no está en el contexto, nombralo con su ruta exacta en "reply": Forja lo carga y te responde de nuevo. Si podés crearlo o reemplazarlo completo sin verlo, hacelo y explicá la decisión.
 - Hacé cambios quirúrgicos: modificá solamente los archivos y las líneas necesarias para cumplir el pedido.
 - No refactorices, reformatees ni limpies código no relacionado. No cambies nombres, dependencias, arquitectura o estilos existentes sin pedirlo.
@@ -368,7 +371,11 @@ export const askForja = createServerFn({ method: "POST" })
       true,
     );
     const teamNames = done.map((n) => n.agent.name);
-    const parsed = extractJson(lead.text) as { reply?: unknown; edits?: unknown } | null;
+    const parsed = extractJson(lead.text) as {
+      reply?: unknown;
+      edits?: unknown;
+      continuar?: unknown;
+    } | null;
     if (!parsed)
       return {
         reply: naturalizeReply(lead.text),
@@ -463,6 +470,7 @@ PEDIDO ORIGINAL:\n${lastUser}\n\nRESPUESTA DEL LÍDER:\n${typeof parsed.reply ==
     return {
       reply: naturalizeReply(typeof parsed.reply === "string" ? parsed.reply : "Listo."),
       edits: safeEdits,
+      more: parsed.continuar === true && safeEdits.length > 0,
       provider: lead.provider,
       model: lead.model,
       team: teamNames,

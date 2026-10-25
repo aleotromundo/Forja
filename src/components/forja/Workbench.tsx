@@ -99,6 +99,9 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
   return [w, start] as const;
 }
 
+// Pasos automáticos máximos por pedido. Después, el usuario escribe "seguí".
+const MAX_AUTO_STEPS = 8;
+
 export function Workbench() {
   const ask = useServerFn(askForja);
   const getStatus = useServerFn(getAiStatus);
@@ -341,18 +344,25 @@ export function Workbench() {
     await refresh();
   };
 
-  const sendChat = async (text: string, extras: ChatExtras): Promise<boolean> => {
+  const sendChat = async (
+    text: string,
+    extras: ChatExtras,
+    step = 0,
+    base?: ChatMsg[],
+  ): Promise<boolean> => {
     if (!root) return false;
     const input = previewContext
       ? `${text}\n\n[Contexto seleccionado en vista previa]\n${previewContext}`
       : text;
-    const history: ChatMsg[] = [...messages, { role: "user", content: input }];
+    const history: ChatMsg[] = [...(base ?? messages), { role: "user", content: input }];
     setBusy(true);
     setApiStatus("connecting");
     setRequestPhase("preparing");
     try {
       // Context: active file, open tabs, and any file path mentioned in the message.
       const wanted = new Set<string>();
+      // Memoria del proyecto: se carga si existe.
+      wanted.add(".forja/memoria.md");
       if (active) wanted.add(active);
       tabs.forEach((t) => wanted.add(t.path));
       files.forEach((f) => {
@@ -432,6 +442,7 @@ export function Workbench() {
         return true;
       }
       if (
+        step === 0 &&
         edits.length > 0 &&
         !window.confirm(
           `La IA propone aplicar ${edits.length} cambio${edits.length === 1 ? "" : "s"}:\n\n${edits
@@ -581,20 +592,41 @@ export function Workbench() {
       );
       if (edits.length) await refresh();
 
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content: res.reply,
-          edits: edits.map((e) => ({
-            path: e.path,
-            action: e.action,
-            ...(e.toPath ? { toPath: e.toPath } : {}),
-          })),
-          provider: res.provider,
-          team: res.team,
-        },
-      ]);
+      const limitReached = res.more === true && step + 1 >= MAX_AUTO_STEPS;
+      const assistantMsg: ChatMsg = {
+        role: "assistant",
+        content: limitReached
+          ? `${res.reply}\n\n(Llegué al límite de ${MAX_AUTO_STEPS} pasos automáticos; escribí "seguí" para continuar.)`
+          : res.reply,
+        edits: edits.map((e) => ({
+          path: e.path,
+          action: e.action,
+          ...(e.toPath ? { toPath: e.toPath } : {}),
+        })),
+        provider: res.provider,
+        team: res.team,
+      };
+      if (res.more === true && step + 1 < MAX_AUTO_STEPS) {
+        // Sigue solo con el siguiente paso, informando lo que quedó aplicado.
+        const applied = edits
+          .map((e) =>
+            e.action === "delete"
+              ? `eliminé ${e.path}`
+              : e.action === "mkdir"
+                ? `creé la carpeta ${e.path}`
+                : e.action === "move"
+                  ? `moví ${e.path} a ${e.toPath}`
+                  : `modifiqué ${e.path}`,
+          )
+          .join(", ");
+        return sendChat(
+          `Paso ${step + 1} aplicado: ${applied || "sin cambios"}. Continuá con el siguiente paso del plan. Si ya no queda nada, respondé con "continuar": false.`,
+          { attachments: [], projectPaths: [], ...(extras.mode ? { mode: extras.mode } : {}) },
+          step + 1,
+          [...history, assistantMsg],
+        );
+      }
+      setMessages((m) => [...m, assistantMsg]);
     } catch (err) {
       setApiStatus("offline");
       setRequestPhase("idle");

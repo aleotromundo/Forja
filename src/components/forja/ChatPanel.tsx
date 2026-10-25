@@ -109,7 +109,7 @@ function relativeDate(value: string) {
 
 // Frases que indican que el usuario quiere empezar a aplicar lo planeado.
 const APPLY_INTENT =
-  /\b(dale|hacelo|hagámoslo|hagamoslo|empecemos|empez[aá]|manos a la obra|aplic[aá]|implement[aá]|adelante|ejecut[aá])\b/i;
+  /\b(dale|hacelo|hagámoslo|hagamoslo|empecemos|empez[aá]|manos a la obra|aplic[aá]|implement[aá]|adelante|ejecut[aá])(?![\wáéíóúñ])/i;
 const APPLY_TEXT = "Aplicá lo que acordamos hasta ahora.";
 
 export function ChatPanel({
