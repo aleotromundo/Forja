@@ -384,6 +384,25 @@ export function Workbench() {
     waiter?.(ok);
   };
 
+  // Pregunta de permiso dentro del chat (tarjeta con Aprobar / Rechazar).
+  const askApproval = (items: string[]) => {
+    const id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setMessages((ms) => [
+      ...ms,
+      {
+        role: "assistant",
+        content: "Necesito tu permiso para estas acciones:",
+        approval: { id, items, status: "pending" },
+        provider: "agente",
+        team: [],
+      },
+    ]);
+    return new Promise<boolean>((resolve) => approvalWaiters.current.set(id, resolve));
+  };
+
+  const say = (content: string) =>
+    setMessages((ms) => [...ms, { role: "assistant", content, provider: "forja", team: [], error: false }]);
+
   const connectAgent = async () => {
     const token = window.prompt(
       "Pegá el token que muestra el agente local de Forja (la ventana de tu PC):",
@@ -393,7 +412,7 @@ export function Workbench() {
     try {
       const health = (await agentCall("/health", {})) as { project?: string };
       if (root && health.project && health.project !== root.name) {
-        window.alert(
+        say(
           `Ojo: el agente está en la carpeta "${health.project}" y abriste "${root.name}". Tienen que ser la misma.`,
         );
       }
@@ -401,7 +420,7 @@ export function Workbench() {
     } catch (error) {
       clearAgentSettings();
       setAgentLinked(false);
-      window.alert((error as Error).message);
+      say(`No pude conectar el agente: ${(error as Error).message}`);
     }
   };
 
@@ -454,21 +473,8 @@ export function Workbench() {
         if (!route) throw new Error(`Herramienta desconocida: ${name}`);
         return agentCall(route, args);
       },
-      approve: (calls: ToolCall[]) => {
-        const id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const items = calls.map((c) => `${c.name} ${JSON.stringify(c.args).slice(0, 160)}`);
-        setMessages((ms) => [
-          ...ms,
-          {
-            role: "assistant",
-            content: "Necesito tu permiso para estas acciones:",
-            approval: { id, items, status: "pending" },
-            provider: "agente",
-            team: [],
-          },
-        ]);
-        return new Promise<boolean>((resolve) => approvalWaiters.current.set(id, resolve));
-      },
+      approve: (calls: ToolCall[]) =>
+        askApproval(calls.map((c) => `${c.name} ${JSON.stringify(c.args).slice(0, 160)}`)),
       drain: () => steerRef.current.splice(0),
       onSteer: (text) => setMessages((m) => [...m, { role: "user", content: text }]),
       shouldStop: () => stopRef.current,
@@ -645,21 +651,19 @@ export function Workbench() {
       if (
         step === 0 &&
         edits.length > 0 &&
-        !window.confirm(
-          `La IA propone aplicar ${edits.length} cambio${edits.length === 1 ? "" : "s"}:\n\n${edits
-            .map((edit) => {
-              const label =
-                edit.action === "delete"
-                  ? "Eliminar"
-                  : edit.action === "mkdir"
-                    ? "Crear carpeta"
-                    : edit.action === "move"
-                      ? "Mover"
-                      : "Modificar/crear";
-              return `${label} ${edit.path}${edit.action === "move" ? ` → ${edit.toPath}` : ""}`;
-            })
-            .join("\n")}\n\n¿Querés aplicar estos cambios?`,
-        )
+        !(await askApproval(
+          edits.map((edit) => {
+            const label =
+              edit.action === "delete"
+                ? "Eliminar"
+                : edit.action === "mkdir"
+                  ? "Crear carpeta"
+                  : edit.action === "move"
+                    ? "Mover"
+                    : "Modificar/crear";
+            return `${label} ${edit.path}${edit.action === "move" ? ` → ${edit.toPath}` : ""}`;
+          }),
+        ))
       ) {
         setMessages((current) => [
           ...current,
