@@ -65,6 +65,11 @@ export const AGENT_TOOLS = [
     obj({ message: str("mensaje del commit") }, ["message"]),
   ),
   fn(
+    "open_file",
+    "Abre un archivo en Forja para que el usuario lo vea. No ejecuta nada. Usalo después de crear o cambiar un archivo que el usuario tiene que revisar.",
+    obj({ path: str("ruta relativa") }, ["path"]),
+  ),
+  fn(
     "consult_specialist",
     "Pide la opinión de un especialista del equipo antes de decidir algo difícil. architect: arquitectura y archivos; ui: interfaz y responsive; logic: lógica y datos; qa: pruebas y riesgos; docs: documentación. No modifica nada.",
     obj(
@@ -95,6 +100,7 @@ Reglas:
 - Las acciones que modifican el proyecto las aprueba el usuario; si una fue rechazada, no insistas: explicá y ofrecé alternativas.
 - No hagas push ni instales paquetes.
 - Para decisiones de diseño o riesgos, consultá a un especialista con consult_specialist antes de editar.
+- Si generaste un archivo que el usuario tiene que ver, abrilo con open_file. Para generar archivos con un script: escribí el script, corrélo con run_command y después abrí el resultado.
 - Si necesitás generar algo con un script: escribí el script con write_file y después corrélo con run_command (node ruta/script.js o python ruta/script.py). Nunca menciones un script, comando o archivo que no hayas creado o que no exista en el proyecto.
 - Memoria del proyecto: si existe .forja/memoria.md, leela al empezar y respetala. Actualizala con write_file (contenido completo) cuando aprendas algo duradero.
 - Cuando termines, respondé en español, directo y breve, sin listas largas ni JSON. Contá qué cambiaste y qué verificaste.`;

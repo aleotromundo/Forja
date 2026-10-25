@@ -429,6 +429,12 @@ export function Workbench() {
           : { type: "final" as const, reply: step.reply, provider: step.provider, model: step.model };
       },
       runTool: async (name, args) => {
+        if (name === "open_file") {
+          const path = String(args["path"] ?? "");
+          if (!isSafeRelativePath(path)) throw new Error("Ruta inválida.");
+          await openFile(path);
+          return { ok: true, abierto: path };
+        }
         if (name === "consult_specialist") {
           setRequestPhase("consulting");
           const agent = SPECIALISTS.find((a) => a.id === args["specialist"]);
