@@ -111,6 +111,9 @@ function relativeDate(value: string) {
 const APPLY_INTENT =
   /\b(dale|hacelo|hagámoslo|hagamoslo|empecemos|empez[aá]|manos a la obra|aplic[aá]|implement[aá]|adelante|ejecut[aá])(?![\wáéíóúñ])/i;
 const APPLY_TEXT = "Aplicá lo que acordamos hasta ahora.";
+// Pedidos de crear o cambiar algo: en Planear, Forja ofrece pasar a Modificar.
+const EDIT_INTENT =
+  /\b(cre[aá]|hac[eé]|modific[aá]|cambi[aá]|agreg[aá]|borr[aá]|elimin[aá]|correg[ií]|arregl[aá]|gener[aá]|escrib[ií]|instal[aá]|configur[aá]|mov[eé]|renombr[aá]|implement[aá])(?![\wáéíóúñ])/i;
 
 export function ChatPanel({
   messages,
@@ -141,7 +144,7 @@ export function ChatPanel({
   const [search, setSearch] = useState("");
   const [reading, setReading] = useState(false);
   const [mode, setMode] = useState<ChatMode>("plan");
-  const [applyBanner, setApplyBanner] = useState(false);
+  const [pendingEdit, setPendingEdit] = useState<{ text: string; label: string } | null>(null);
   const [confirmApply, setConfirmApply] = useState(false);
   const lastModeRef = useRef<ChatMode | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -235,18 +238,24 @@ export function ChatPanel({
       setText("");
       setAttachments([]);
       setProjectPaths([]);
-      setApplyBanner(sentMode === "plan" && APPLY_INTENT.test(t));
+      if (sentMode === "plan" && APPLY_INTENT.test(t)) {
+        setPendingEdit({ text: APPLY_TEXT, label: "Para empezar a hacer los cambios, cambiá a Modificar." });
+      } else if (sentMode === "plan" && EDIT_INTENT.test(t)) {
+        setPendingEdit({ text: t, label: "Esto parece un pedido de cambios en el proyecto. ¿Lo hacemos?" });
+      } else {
+        setPendingEdit(null);
+      }
     }
   };
 
   // Aplica el plan acordado en Modificar, sin que el usuario tenga que repetirlo.
-  const runApply = async () => {
+  const runApply = async (text: string = APPLY_TEXT) => {
     setConfirmApply(false);
-    setApplyBanner(false);
+    setPendingEdit(null);
     setText("");
     dictation.stop();
     setMode("edit");
-    const sent = await onSend(APPLY_TEXT, { attachments: [], projectPaths: [], mode: "edit" });
+    const sent = await onSend(text, { attachments: [], projectPaths: [], mode: "edit" });
     if (sent) lastModeRef.current = "edit";
   };
 
@@ -585,16 +594,14 @@ export function ChatPanel({
             ))}
           </div>
         )}
-        {applyBanner && !busy && (
+        {pendingEdit && !busy && (
           <div className="mb-2 flex flex-wrap items-center gap-2 rounded border border-ember/40 bg-panel-deep p-2 text-xs">
-            <span className="min-w-0 flex-1 text-muted-foreground">
-              Para empezar a hacer los cambios, cambiá a Modificar.
-            </span>
-            <Button size="sm" onClick={() => void runApply()}>
-              Cambiar a Modificar y aplicar
+            <span className="min-w-0 flex-1 text-muted-foreground">{pendingEdit.label}</span>
+            <Button size="sm" onClick={() => void runApply(pendingEdit.text)}>
+              Pasar a Modificar y hacerlo
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setApplyBanner(false)}>
-              Seguir planeando
+            <Button size="sm" variant="ghost" onClick={() => setPendingEdit(null)}>
+              Seguir conversando
             </Button>
           </div>
         )}

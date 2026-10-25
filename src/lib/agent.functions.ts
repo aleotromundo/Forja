@@ -19,7 +19,7 @@ const TIMEOUT_MS = 60_000;
 const GROQ_SAFE_TOKENS = 6_000;
 
 const AgentInput = z.object({
-  messages: z.array(z.any()).min(1).max(120),
+  messages: z.array(z.any()).min(1).max(200),
 });
 
 /** Un paso del agente: el modelo pide herramientas o responde con texto final. */

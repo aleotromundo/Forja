@@ -9,7 +9,7 @@ const InputSchema = z.object({
   messages: z
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(40000) }))
     .min(1)
-    .max(40),
+    .max(200),
   files: z
     .array(z.object({ path: z.string(), content: z.string().max(MAX_CONTEXT_FILE_CHARS) }))
     .max(MAX_CONTEXT_FILES)

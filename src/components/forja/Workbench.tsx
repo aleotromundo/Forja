@@ -53,6 +53,7 @@ import { editProblems } from "@/lib/edit-checks";
 import { askAgent } from "@/lib/agent.functions";
 import { runAgentLoop, type ToolCall } from "@/lib/agent-loop";
 import { TOOL_ROUTES } from "@/lib/agent-tools";
+import { recentContext } from "@/lib/chat-history";
 import {
   agentCall,
   AGENT_URL,
@@ -386,9 +387,7 @@ export function Workbench() {
   // Modo agente: el modelo lee, cambia y verifica el proyecto con herramientas en la PC del usuario.
   const runAgent = async (history: ChatMsg[]) => {
     if (!root) return;
-    const messages: unknown[] = history
-      .slice(-20)
-      .map((m) => ({ role: m.role, content: m.content }));
+    const messages: unknown[] = recentContext(history);
     const result = await runAgentLoop(messages, {
       ask: async (msgs) => {
         setRequestPhase("consulting");
@@ -488,7 +487,7 @@ export function Workbench() {
 
       let res = await ask({
         data: {
-          messages: history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
+          messages: recentContext(history),
           files: ctx,
           tree: files.slice(0, 3000),
           activePath: active,
@@ -515,7 +514,7 @@ export function Workbench() {
           setRequestPhase("consulting");
           res = await ask({
             data: {
-              messages: history.slice(-12).map((m) => ({ role: m.role, content: m.content })),
+              messages: recentContext(history),
               files: [...ctx, ...extra],
               tree: files.slice(0, 3000),
               activePath: active,
