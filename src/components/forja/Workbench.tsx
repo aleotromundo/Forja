@@ -422,10 +422,13 @@ export function Workbench() {
       setPreviewContext("");
 
       // Apply edits to disk and editor.
+      // "open" no modifica archivos: se muestra en una pestaña al final.
+      const opens = res.edits.filter((e) => e.action === "open" && isSafeRelativePath(e.path));
       const edits = res.edits.filter(
-        (edit) =>
+        (edit): edit is typeof edit & { action: "write" | "delete" | "mkdir" | "move" } =>
+          edit.action !== "open" &&
           isSafeRelativePath(edit.path) &&
-          (edit.action !== "move" || (edit.toPath && isSafeRelativePath(edit.toPath))),
+          (edit.action !== "move" || Boolean(edit.toPath && isSafeRelativePath(edit.toPath))),
       );
       // Revisión antes de aplicar: si el cambio rompe imports conocidos, no se aplica.
       const problems = editProblems(edits);
@@ -583,6 +586,7 @@ export function Workbench() {
       });
       const firstWrite = edits.find((e) => e.action === "write");
       if (firstWrite) setActive(firstWrite.path);
+      for (const o of opens) await openFile(o.path).catch(() => {});
       setChanged(
         (c) =>
           new Set([

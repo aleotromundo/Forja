@@ -31,7 +31,7 @@ const InputSchema = z.object({
 
 export interface AiEdit {
   path: string;
-  action: "write" | "delete" | "mkdir" | "move";
+  action: "write" | "delete" | "mkdir" | "move" | "open";
   content?: string;
   toPath?: string;
 }
@@ -81,7 +81,7 @@ function enabledSlots(env: Record<string, string | undefined>) {
 }
 
 const EDIT_REQUEST =
-  /\b(modific[aá]|cambi[aá]|reemplaz[aá]|agreg[aá]|añad[ií]|cre[aá]|elimin[aá]|borr[aá]|correg[ií]|arregl[aá]|implement[aá]|hac[eé]|actualiz[aá]|refactoriz[aá]|aplic[aá]|continu[aá])(?![\wáéíóúñ])/i;
+  /\b(modific[aá]|cambi[aá]|reemplaz[aá]|agreg[aá]|añad[ií]|cre[aá]|elimin[aá]|borr[aá]|correg[ií]|arregl[aá]|implement[aá]|hac[eé]|actualiz[aá]|refactoriz[aá]|aplic[aá]|continu[aá]|abr[ií])(?![\wáéíóúñ])/i;
 
 function naturalizeReply(text: string) {
   return text
@@ -124,6 +124,7 @@ Reglas:
 - Nunca escribas en "reply" tu razonamiento, planes internos ni JSON. "reply" es solo la explicación para el usuario.
 - Nunca mandes un "write" con "content" vacío.
 - Si el pedido necesita varios pasos, hacé solo el primer paso con edits y poné "continuar": true. Forja aplica tus cambios, te cuenta qué quedó hecho y te pide el siguiente paso. Cuando no quede nada, poné "continuar": false.
+- Para abrir un archivo en Forja después de los cambios, usá {"path": "ruta/relativa.ext", "action": "open"}. No abre nada en tu computadora; solo lo muestra en la app.
 - Memoria del proyecto: si existe .forja/memoria.md, es la memoria del proyecto y tiene que respetarse. Cuando aprendas algo duradero (decisiones, convenciones, qué está hecho y qué falta), actualizalo con un "write" que traiga el contenido completo: lo anterior más lo nuevo. Mantenelo corto.
 - Nunca le pidas al usuario que pegue el contenido de un archivo. Si necesitás un archivo que no está en el contexto, nombralo con su ruta exacta en "reply": Forja lo carga y te responde de nuevo. Si podés crearlo o reemplazarlo completo sin verlo, hacelo y explicá la decisión.
 - Hacé cambios quirúrgicos: modificá solamente los archivos y las líneas necesarias para cumplir el pedido.
@@ -390,9 +391,10 @@ export const askForja = createServerFn({ method: "POST" })
             e &&
             typeof e.path === "string" &&
             isSafeRelativePath(e.path) &&
-            ["write", "delete", "mkdir", "move"].includes(e.action) &&
+            ["write", "delete", "mkdir", "move", "open"].includes(e.action) &&
             (e.action === "delete" ||
               e.action === "mkdir" ||
+              e.action === "open" ||
               (e.action === "move" &&
                 typeof e.toPath === "string" &&
                 isSafeRelativePath(e.toPath)) ||
