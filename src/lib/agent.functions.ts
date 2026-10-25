@@ -20,6 +20,8 @@ const GROQ_SAFE_TOKENS = 6_000;
 
 const AgentInput = z.object({
   messages: z.array(z.any()).min(1).max(200),
+  system: z.string().max(6000).optional(),
+  noTools: z.boolean().optional(),
 });
 
 /** Un paso del agente: el modelo pide herramientas o responde con texto final. */
@@ -29,7 +31,8 @@ export const askAgent = createServerFn({ method: "POST" })
     const slots = prioritizeSlots(enabledSlots(process.env as Record<string, string | undefined>));
     if (!slots.length) throw new Error("No hay claves de IA configuradas en Vercel.");
 
-    const messages = [{ role: "system", content: AGENT_SYSTEM }, ...data.messages];
+    const messages = [{ role: "system", content: data.system ?? AGENT_SYSTEM }, ...data.messages];
+    const tools = data.noTools ? undefined : AGENT_TOOLS;
     const approxTokens = JSON.stringify(messages).length / 3.5 + 1500;
     const errors: string[] = [];
 
@@ -44,8 +47,7 @@ export const askAgent = createServerFn({ method: "POST" })
           body: JSON.stringify({
             model: slot.model,
             messages,
-            tools: AGENT_TOOLS,
-            tool_choice: "auto",
+            ...(tools ? { tools, tool_choice: "auto" } : {}),
           }),
           signal: controller.signal,
         });

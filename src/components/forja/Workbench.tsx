@@ -55,6 +55,17 @@ import { runAgentLoop, type ToolCall } from "@/lib/agent-loop";
 import { TOOL_ROUTES } from "@/lib/agent-tools";
 import { recentContext } from "@/lib/chat-history";
 import {
+  buildContext,
+  chunkToSummarize,
+  loadSummary,
+  needsSummary,
+  saveSummary,
+  summaryRequest,
+  SUMMARY_SYSTEM,
+  type ConversationSummary,
+} from "@/lib/conversation-memory";
+import { SPECIALISTS, specialistPrompt } from "@/lib/agents";
+import {
   agentCall,
   AGENT_URL,
   clearAgentSettings,
@@ -400,9 +411,9 @@ export function Workbench() {
   };
 
   // Modo agente: el modelo lee, cambia y verifica el proyecto con herramientas en la PC del usuario.
-  const runAgent = async (history: ChatMsg[]) => {
+  const runAgent = async (chatContext: { role: "user" | "assistant"; content: string }[]) => {
     if (!root) return;
-    const messages: unknown[] = recentContext(history);
+    const messages: unknown[] = [...chatContext];
     const result = await runAgentLoop(messages, {
       ask: async (msgs) => {
         setRequestPhase("consulting");
@@ -418,6 +429,19 @@ export function Workbench() {
           : { type: "final" as const, reply: step.reply, provider: step.provider, model: step.model };
       },
       runTool: async (name, args) => {
+        if (name === "consult_specialist") {
+          setRequestPhase("consulting");
+          const agent = SPECIALISTS.find((a) => a.id === args["specialist"]);
+          if (!agent) throw new Error("Especialista desconocido.");
+          const step = await askAgent({
+            data: {
+              messages: [{ role: "user", content: String(args["question"] ?? "") }],
+              system: specialistPrompt(agent, "edit"),
+              noTools: true,
+            },
+          });
+          return { especialista: agent.name, opinion: step.reply };
+        }
         setRequestPhase("applying");
         const route = TOOL_ROUTES[name];
         if (!route) throw new Error(`Herramienta desconocida: ${name}`);
@@ -504,14 +528,39 @@ export function Workbench() {
       setMessages(history);
       setRequestPhase("consulting");
 
+      // Memoria de la charla: en charlas largas, lo viejo se resume y se guarda por sesión.
+      const sid = activeSessionId ?? "default";
+      let summary: ConversationSummary | null = loadSummary(sid);
+      if (needsSummary(history.length, summary)) {
+        try {
+          const r = await askAgent({
+            data: {
+              messages: [
+                {
+                  role: "user",
+                  content: summaryRequest(summary?.text, recentContext(chunkToSummarize(history, summary))),
+                },
+              ],
+              system: SUMMARY_SYSTEM,
+              noTools: true,
+            },
+          });
+          summary = { upTo: history.length - 20, text: r.reply };
+          saveSummary(sid, summary);
+        } catch {
+          /* Sin resumen nuevo seguimos con el recorte reciente. */
+        }
+      }
+      const chatContext = buildContext(history, summary);
+
       if (agentLinked && extras.mode !== "plan") {
-        await runAgent(history);
+        await runAgent(chatContext);
         return true;
       }
 
       let res = await ask({
         data: {
-          messages: recentContext(history),
+          messages: chatContext,
           files: ctx,
           tree: files.slice(0, 3000),
           activePath: active,
@@ -538,7 +587,7 @@ export function Workbench() {
           setRequestPhase("consulting");
           res = await ask({
             data: {
-              messages: recentContext(history),
+              messages: chatContext,
               files: [...ctx, ...extra],
               tree: files.slice(0, 3000),
               activePath: active,
