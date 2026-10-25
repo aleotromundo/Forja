@@ -53,7 +53,7 @@ export interface AiStatus {
 const PROVIDER_TIMEOUT_MS = 60_000;
 const GROQ_SAFE_TOKENS = 6_000;
 const PROVIDER_BUDGET_MS = 90_000;
-const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const TRANSIENT_STATUS = new Set([500, 502, 503, 504]);
 const MODEL_FALLBACK_STATUS = new Set([400, 404, 429, 500, 502, 503, 504]);
 
 function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
@@ -209,7 +209,7 @@ export const askForja = createServerFn({ method: "POST" })
             for (const candidate of models) {
               if (Date.now() >= deadline) break;
               model = candidate;
-              for (let attempt = 0; attempt < 2; attempt++) {
+              for (let attempt = 0; attempt < 3; attempt++) {
                 if (Date.now() >= deadline) break;
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
@@ -234,8 +234,8 @@ export const askForja = createServerFn({ method: "POST" })
                     ...(slot.provider === "gemini" ? {} : { temperature: json ? 0.2 : 0.4 }),
                   }),
                 }).finally(() => clearTimeout(timer));
-                if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === 1) break;
-                await wait(700);
+                if (res.ok || !TRANSIENT_STATUS.has(res.status) || attempt === 2) break;
+                await wait(attempt === 0 ? 1500 : 4000);
               }
               if (
                 res?.ok ||
