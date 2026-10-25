@@ -6,6 +6,7 @@ import {
   MessageSquare,
   MousePointer2,
   Pencil,
+  Play,
   RefreshCw,
   Send,
   Type,
@@ -46,6 +47,12 @@ interface Mark {
   text: string;
 }
 
+// Documento aislado para correr un .js: captura console.log y errores en la página.
+function runDocument(code: string) {
+  const safe = code.replace(/<\/script/gi, "<\\/script");
+  return `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px;font:13px ui-monospace,monospace;background:#fff;color:#111;white-space:pre-wrap}</style></head><body><div id="out"></div><script>(function(){var out=document.getElementById("out");function show(a){return typeof a==="string"?a:(function(){try{return JSON.stringify(a)}catch(e){return String(a)}})()}function w(){out.textContent+=Array.prototype.map.call(arguments,show).join(" ")+"\\n"}console.log=w;console.error=w;console.warn=w;window.onerror=function(m,s,l){w("Error: "+m+" (línea "+l+")")}})();</script><script>${safe}</script></body></html>`;
+}
+
 export function PreviewPane({
   root,
   files,
@@ -70,6 +77,10 @@ export function PreviewPane({
   const [url, setUrl] = useState("");
   const [source, setSource] = useState("");
   const [documentHtml, setDocumentHtml] = useState("");
+  // Salida de un script JS ejecutado a pedido del usuario (aislado, sin acceso a la app).
+  const [runDoc, setRunDoc] = useState("");
+  const scriptPath = active && /\.m?js$/i.test(active) ? active : null;
+  useEffect(() => setRunDoc(""), [active]);
   const [elements, setElements] = useState<PreviewElement[]>([]);
   const [mode, setMode] = useState<Mode>("browse");
   const [selected, setSelected] = useState<PreviewElement | null>(null);
@@ -253,9 +264,28 @@ export function PreviewPane({
       : { x: 0, y: 0 };
   };
 
+  const runScript = async () => {
+    if (!scriptPath) return;
+    const code =
+      tabs.find((tab) => tab.path === scriptPath)?.content ??
+      (root ? await readFile(root, scriptPath).catch(() => "") : "");
+    setRunDoc(runDocument(code));
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-panel px-3 py-2">
+        {scriptPath && !external && (
+          <Button
+            variant={runDoc ? "secondary" : "ghost"}
+            size="sm"
+            title="Ejecutar este script dentro de Forja, aislado. No toca tus archivos."
+            onClick={() => (runDoc ? setRunDoc("") : void runScript())}
+          >
+            {runDoc ? <X /> : <Play />}
+            {runDoc ? "Cerrar salida" : "Ejecutar"}
+          </Button>
+        )}
         <Button
           variant={!external ? "secondary" : "ghost"}
           size="icon"
@@ -343,13 +373,13 @@ export function PreviewPane({
           <div role="alert" className="p-6 text-sm text-destructive">
             {error}
           </div>
-        ) : (external ? url : documentHtml) ? (
+        ) : (external ? url : runDoc || documentHtml) ? (
           <iframe
             ref={frame}
             key={external ? `${url}-${revision}` : "local"}
             title="Vista previa del proyecto"
             src={external ? url : undefined}
-            srcDoc={external ? undefined : documentHtml}
+            srcDoc={external ? undefined : runDoc || documentHtml}
             sandbox="allow-scripts"
             className="h-full w-full border-0 bg-preview-paper"
           />
