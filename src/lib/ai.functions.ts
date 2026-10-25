@@ -4,6 +4,7 @@ import { buildSlots, extractJson, prioritizeSlots } from "./ai-providers";
 import { LEAD_ROLE, enforceMode, modeInstructions, pickTeam, specialistPrompt } from "./agents";
 import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_CHARS, MAX_CONTEXT_FILES } from "./chat-context";
 import { isSafeRelativePath } from "./paths";
+import { friendlyFailure, logFailure } from "./friendly-errors";
 
 const InputSchema = z.object({
   messages: z
@@ -272,7 +273,8 @@ export const askForja = createServerFn({ method: "POST" })
           );
         }
       }
-      throw new Error(`Todos los proveedores fallaron:\n${errors.join("\n")}`);
+      logFailure("ask", errors);
+      throw new Error(friendlyFailure(errors));
     };
 
     const lastUser = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";

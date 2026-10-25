@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prioritizeSlots } from "./ai-providers";
 import { enabledSlots } from "./ai.functions";
 import { AGENT_SYSTEM, AGENT_TOOLS } from "./agent-tools";
+import { friendlyFailure, logFailure } from "./friendly-errors";
 /** Forma plana para cruzar el servidor (el serializador no acepta uniones). */
 export interface AgentStepWire {
   type: "final" | "tool_calls";
@@ -113,5 +114,6 @@ export const askAgent = createServerFn({ method: "POST" })
         clearTimeout(timer);
       }
     }
-    throw new Error(`Todos los proveedores fallaron:\n${errors.join("\n")}`);
+    logFailure("agent", errors);
+    throw new Error(friendlyFailure(errors));
   });
