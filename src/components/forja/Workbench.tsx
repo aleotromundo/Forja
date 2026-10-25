@@ -39,6 +39,13 @@ import {
 import { cn } from "@/lib/utils";
 import { isSafeRelativePath } from "@/lib/paths";
 import { ChatPanel, type ChatMsg, type QueuedMessage } from "./ChatPanel";
+import {
+  ensureAccess,
+  forgetProject,
+  listRecent,
+  rememberProject,
+  type RecentProject,
+} from "@/lib/recent-projects";
 import { EditorPane, type RevealRequest, type Tab } from "./EditorPane";
 import { Explorer } from "./Explorer";
 import { PreviewPane } from "./PreviewPane";
@@ -129,6 +136,10 @@ export function Workbench() {
   const ask = useServerFn(askForja);
   const getStatus = useServerFn(getAiStatus);
   const [root, setRoot] = useState<FileSystemDirectoryHandle | null>(null);
+  const [recent, setRecent] = useState<RecentProject[]>([]);
+  useEffect(() => {
+    void listRecent().then(setRecent);
+  }, []);
   const [tree, setTree] = useState<FileNode[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [active, setActive] = useState<string | null>(null);
@@ -228,9 +239,9 @@ export function Workbench() {
     [root],
   );
 
-  const openFolder = async () => {
+  const openHandle = async (h: FileSystemDirectoryHandle) => {
     try {
-      const h = await pickFolder();
+      void rememberProject(h).then(() => listRecent().then(setRecent));
       editHistory.current.clear();
       updateHistory((v) => v + 1);
       const restored = loadChatSessions(h.name);
@@ -245,9 +256,25 @@ export function Workbench() {
       setChanged(new Set());
       setPreviewContext("");
       setTree(await readTree(h));
+    } catch {
+      toast.error("No se pudo leer la carpeta");
+    }
+  };
+
+  const openFolder = async () => {
+    try {
+      await openHandle(await pickFolder());
     } catch (e) {
       if ((e as Error).name !== "AbortError") toast.error("No se pudo abrir la carpeta");
     }
+  };
+
+  const openRecent = async (item: RecentProject) => {
+    if (!(await ensureAccess(item.handle))) {
+      toast.error(`Forja necesita permiso para abrir "${item.name}"`);
+      return;
+    }
+    await openHandle(item.handle);
   };
 
   const newChat = () => {
@@ -1053,6 +1080,34 @@ export function Workbench() {
                   >
                     <FolderOpen className="h-4 w-4" /> Abrir carpeta
                   </button>
+                  {recent.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Proyectos recientes
+                      </div>
+                      {recent.map((item) => (
+                        <div key={item.id} className="group flex items-center gap-1">
+                          <button
+                            onClick={() => void openRecent(item)}
+                            className="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left hover:bg-accent"
+                            title={item.name}
+                          >
+                            <FolderOpen className="mr-1 inline h-3.5 w-3.5 text-ember" />
+                            {item.name}
+                          </button>
+                          <button
+                            onClick={() => {
+                              void forgetProject(item.id).then(() => listRecent().then(setRecent));
+                            }}
+                            className="rounded px-1.5 py-1 text-xs text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+                            title="Quitar de recientes"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {!isSupported() && (
                     <p className="text-xs text-destructive">
                       Tu navegador no permite abrir carpetas locales. Usá Chrome, Edge u Opera en
