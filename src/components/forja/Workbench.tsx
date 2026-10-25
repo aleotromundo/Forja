@@ -640,6 +640,28 @@ export function Workbench() {
           });
         }
       }
+      // Forja no le pide al usuario que pegue archivos: si lo hace sin cambios, se le corrige una vez.
+      const asksToPaste =
+        /(pegar|pegu[eé]|pegá|facilit|pas[aá]me|mand[aá]me|compart[ií]me|contenido (completo|del archivo|de los archivos))/i;
+      if (res.edits.length === 0 && asksToPaste.test(res.reply) && !stopRef.current) {
+        setRequestPhase("consulting");
+        res = await ask({
+          data: {
+            messages: [
+              ...chatContext,
+              {
+                role: "user",
+                content:
+                  "[Instrucción de Forja] No le pidas al usuario que pegue archivos ni su contenido. Si el archivo está en ARCHIVOS DEL PROYECTO, usalo y hacé el cambio con edits. Si no está en la lista, decí en una o dos frases que no lo encontrás en la carpeta abierta y pedí que lo abra en Forja.",
+              },
+            ],
+            files: ctx,
+            tree: files.slice(0, 3000),
+            activePath: active,
+            mode: extras.mode ?? "edit",
+          },
+        });
+      }
       if (stopRef.current) {
         setMessages((m) => [
           ...m,
