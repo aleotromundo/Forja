@@ -75,6 +75,48 @@ export interface ChatMsg {
   team?: string[];
   error?: boolean;
   undone?: boolean;
+  approval?: ApprovalRequest;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  items: string[];
+  status: "pending" | "approved" | "rejected";
+}
+
+// Pedido de permiso dentro del chat: el agente espera a que el usuario elija.
+function ApprovalCard({
+  approval,
+  onDecide,
+}: {
+  approval: ApprovalRequest;
+  onDecide: (id: string, ok: boolean) => void;
+}) {
+  return (
+    <div className="mt-2 space-y-2 border-t pt-2">
+      <ul className="list-disc space-y-0.5 pl-4 font-mono text-[11px] text-muted-foreground">
+        {approval.items.map((item, i) => (
+          <li key={i} className="break-all">
+            {item}
+          </li>
+        ))}
+      </ul>
+      {approval.status === "pending" ? (
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => onDecide(approval.id, true)}>
+            Aprobar
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onDecide(approval.id, false)}>
+            Rechazar
+          </Button>
+        </div>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          {approval.status === "approved" ? "Aprobado" : "Rechazado"}
+        </p>
+      )}
+    </div>
+  );
 }
 
 interface Props {
@@ -89,6 +131,7 @@ interface Props {
   previewContext?: string;
   onClearContext?: () => void;
   onEditMessage: (index: number, content: string) => void;
+  onApproval: (id: string, ok: boolean) => void;
   apiStatus: "connecting" | "connected" | "offline";
   apiProviders: string[];
   requestPhase: "idle" | "preparing" | "consulting" | "applying";
@@ -127,6 +170,7 @@ export function ChatPanel({
   projectFiles,
   projectName,
   onEditMessage,
+  onApproval,
   apiStatus,
   apiProviders,
   requestPhase,
@@ -483,6 +527,7 @@ export function ChatPanel({
                 {copiedIndex === i ? "Copiado" : "Copiar"}
               </button>
             </div>
+            {m.approval && <ApprovalCard approval={m.approval} onDecide={onApproval} />}
             {m.edits && m.edits.length > 0 && (
               <div className="mt-2 space-y-1 border-t pt-2">
                 {m.edits.map((e) => (

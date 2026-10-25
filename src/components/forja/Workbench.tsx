@@ -358,6 +358,21 @@ export function Workbench() {
 
   const [agentLinked, setAgentLinked] = useState(() => hasAgentSettings());
 
+  const approvalWaiters = useRef(new Map<string, (ok: boolean) => void>());
+
+  const resolveApproval = (id: string, ok: boolean) => {
+    const waiter = approvalWaiters.current.get(id);
+    approvalWaiters.current.delete(id);
+    setMessages((ms) =>
+      ms.map((m) =>
+        m.approval?.id === id
+          ? { ...m, approval: { ...m.approval, status: ok ? "approved" : "rejected" } }
+          : m,
+      ),
+    );
+    waiter?.(ok);
+  };
+
   const connectAgent = async () => {
     const token = window.prompt(
       "Pegá el token que muestra el agente local de Forja (la ventana de tu PC):",
@@ -408,12 +423,21 @@ export function Workbench() {
         if (!route) throw new Error(`Herramienta desconocida: ${name}`);
         return agentCall(route, args);
       },
-      approve: async (calls: ToolCall[]) =>
-        window.confirm(
-          `La IA quiere hacer ${calls.length} acción(es) en tu proyecto:\n\n${calls
-            .map((c) => `• ${c.name} ${JSON.stringify(c.args).slice(0, 160)}`)
-            .join("\n")}\n\n¿Permitirlo?`,
-        ),
+      approve: (calls: ToolCall[]) => {
+        const id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const items = calls.map((c) => `${c.name} ${JSON.stringify(c.args).slice(0, 160)}`);
+        setMessages((ms) => [
+          ...ms,
+          {
+            role: "assistant",
+            content: "Necesito tu permiso para estas acciones:",
+            approval: { id, items, status: "pending" },
+            provider: "agente",
+            team: [],
+          },
+        ]);
+        return new Promise<boolean>((resolve) => approvalWaiters.current.set(id, resolve));
+      },
     });
 
     const touched = new Set(
@@ -1042,6 +1066,7 @@ export function Workbench() {
                 previewContext={previewContext}
                 onClearContext={() => setPreviewContext("")}
                 onEditMessage={editMessage}
+                onApproval={resolveApproval}
                 apiStatus={apiStatus}
                 apiProviders={apiProviders}
                 requestPhase={requestPhase}
