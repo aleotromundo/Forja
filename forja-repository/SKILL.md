@@ -7,7 +7,7 @@ description: Trabajo de desarrollo y mantenimiento del repositorio Forja, un edi
 
 ## Objetivo
 
-Trabajar sobre Forja sin romper su modelo de privacidad, su flujo de edición local ni la sincronización con Lovable/GitHub. Antes de modificar, leer `AGENTS.md`, `README.md` y `FORJA_HISTORY.md` cuando existan.
+Trabajar sobre Forja sin romper su modelo de privacidad, su flujo de edición local ni la sincronización con GitHub. Antes de modificar, leer `AGENTS.md`, `README.md` y `FORJA_HISTORY.md` cuando existan.
 
 ## Flujo obligatorio de cambios
 
