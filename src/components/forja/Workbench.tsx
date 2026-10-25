@@ -38,7 +38,7 @@ import {
 } from "@/lib/fs";
 import { cn } from "@/lib/utils";
 import { isSafeRelativePath } from "@/lib/paths";
-import { ChatPanel, type ChatMsg } from "./ChatPanel";
+import { ChatPanel, type ChatMsg, type QueuedMessage } from "./ChatPanel";
 import { EditorPane, type RevealRequest, type Tab } from "./EditorPane";
 import { Explorer } from "./Explorer";
 import { PreviewPane } from "./PreviewPane";
@@ -413,6 +413,7 @@ export function Workbench() {
   // Modo agente: el modelo lee, cambia y verifica el proyecto con herramientas en la PC del usuario.
   const runAgent = async (chatContext: { role: "user" | "assistant"; content: string }[]) => {
     if (!root) return;
+    agentActiveRef.current = true;
     const messages: unknown[] = [...chatContext];
     const result = await runAgentLoop(messages, {
       ask: async (msgs) => {
@@ -468,6 +469,9 @@ export function Workbench() {
         ]);
         return new Promise<boolean>((resolve) => approvalWaiters.current.set(id, resolve));
       },
+      drain: () => steerRef.current.splice(0),
+      onSteer: (text) => setMessages((m) => [...m, { role: "user", content: text }]),
+      shouldStop: () => stopRef.current,
     });
 
     const touched = new Set(
@@ -512,6 +516,7 @@ export function Workbench() {
       : text;
     const history: ChatMsg[] = [...(base ?? messages), { role: "user", content: input }];
     setBusy(true);
+    stopRef.current = false;
     setApiStatus("connecting");
     setRequestPhase("preparing");
     try {
@@ -601,6 +606,13 @@ export function Workbench() {
             },
           });
         }
+      }
+      if (stopRef.current) {
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: "Detenido. No apliqué la respuesta de la IA.", provider: res.provider, team: [] },
+        ]);
+        return true;
       }
       setApiStatus("connected");
       setRequestPhase("applying");
@@ -826,11 +838,68 @@ export function Workbench() {
       ]);
       return false;
     } finally {
+      agentActiveRef.current = false;
+      const leftover = steerRef.current.splice(0).map((text) => ({
+        id: uid(),
+        text,
+        extras: { attachments: [], projectPaths: [], mode: "edit" as const },
+      }));
+      const all = stopRef.current ? [] : [...leftover, ...queueRef.current];
+      if (stopRef.current) setQueue([]);
+      const next = all[0] ?? null;
+      if (next) setQueue(all.slice(1));
+      autoSendRef.current = next;
       setBusy(false);
       setRequestPhase("idle");
     }
     return true;
   };
+
+  const [queued, setQueuedState] = useState<QueuedMessage[]>([]);
+  const queueRef = useRef<QueuedMessage[]>([]);
+  const setQueue = (next: QueuedMessage[]) => {
+    queueRef.current = next;
+    setQueuedState(next);
+  };
+  const steerRef = useRef<string[]>([]);
+  const stopRef = useRef(false);
+  const agentActiveRef = useRef(false);
+  const autoSendRef = useRef<QueuedMessage | null>(null);
+  const uid = () => `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
+  const enqueueMessage = (text: string, extras: ChatExtras) => {
+    setQueue([...queueRef.current, { id: uid(), text, extras }]);
+  };
+
+  const sendNow = (id: string) => {
+    const item = queueRef.current.find((q) => q.id === id);
+    if (!item) return;
+    const rest = queueRef.current.filter((q) => q.id !== id);
+    if (agentActiveRef.current) {
+      // Se suma al trabajo del agente en el próximo paso.
+      steerRef.current.push(item.text);
+      setQueue(rest);
+    } else {
+      setQueue([item, ...rest]);
+    }
+  };
+
+  const removeQueued = (id: string) => setQueue(queueRef.current.filter((q) => q.id !== id));
+
+  const stopWork = () => {
+    stopRef.current = true;
+    steerRef.current = [];
+    setQueue([]);
+    for (const id of [...approvalWaiters.current.keys()]) resolveApproval(id, false);
+  };
+
+  // Al terminar un envío, si quedó algo en cola, se envía solo (con el estado ya actualizado).
+  useEffect(() => {
+    if (busy || !autoSendRef.current) return;
+    const next = autoSendRef.current;
+    autoSendRef.current = null;
+    void sendChat(next.text, next.extras);
+  }, [busy]);
 
   const editMessage = (index: number, _content: string) => {
     setMessages((current) => current.slice(0, index));
@@ -1122,6 +1191,11 @@ export function Workbench() {
                 onClearContext={() => setPreviewContext("")}
                 onEditMessage={editMessage}
                 onApproval={resolveApproval}
+                queued={queued}
+                onQueue={enqueueMessage}
+                onSendNow={sendNow}
+                onRemoveQueued={removeQueued}
+                onStop={stopWork}
                 apiStatus={apiStatus}
                 apiProviders={apiProviders}
                 requestPhase={requestPhase}

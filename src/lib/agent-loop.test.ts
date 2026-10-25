@@ -83,6 +83,50 @@ describe("agent loop", () => {
     expect(JSON.stringify(messages)).toContain("no aprobó");
   });
 
+  it("injects user messages sent during the run before the next step", async () => {
+    const messages: unknown[] = [];
+    let step = 0;
+    let pending = ["agregá también el footer"];
+    await runAgentLoop(messages, {
+      drain: () => {
+        const out = pending;
+        pending = [];
+        return out;
+      },
+      ask: async () =>
+        step++ === 0
+          ? {
+              type: "tool_calls",
+              assistantMessage: {},
+              calls: [{ id: "r", name: "list_files", args: {} }],
+            }
+          : { type: "final", reply: "ok" },
+      runTool: async () => ({ files: [] }),
+      approve: async () => true,
+    });
+    expect(messages).toContainEqual({ role: "user", content: "agregá también el footer" });
+  });
+
+  it("stops when the user presses stop", async () => {
+    let stop = false;
+    const result = await runAgentLoop([], {
+      shouldStop: () => stop,
+      ask: async () => {
+        stop = true;
+        return {
+          type: "tool_calls",
+          assistantMessage: {},
+          calls: [{ id: "r", name: "list_files", args: {} }],
+        };
+      },
+      runTool: async () => {
+        throw new Error("no debería ejecutar herramientas después de detener");
+      },
+      approve: async () => true,
+    });
+    expect(result.stopped).toBe(true);
+  });
+
   it("stops at the round limit", async () => {
     const result = await runAgentLoop([], {
       maxRounds: 2,

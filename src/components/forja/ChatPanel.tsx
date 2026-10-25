@@ -78,6 +78,12 @@ export interface ChatMsg {
   approval?: ApprovalRequest;
 }
 
+export interface QueuedMessage {
+  id: string;
+  text: string;
+  extras: ChatExtras;
+}
+
 export interface ApprovalRequest {
   id: string;
   items: string[];
@@ -132,6 +138,11 @@ interface Props {
   onClearContext?: () => void;
   onEditMessage: (index: number, content: string) => void;
   onApproval: (id: string, ok: boolean) => void;
+  queued: QueuedMessage[];
+  onQueue: (text: string, extras: ChatExtras) => void;
+  onSendNow: (id: string) => void;
+  onRemoveQueued: (id: string) => void;
+  onStop: () => void;
   apiStatus: "connecting" | "connected" | "offline";
   apiProviders: string[];
   requestPhase: "idle" | "preparing" | "consulting" | "applying";
@@ -171,6 +182,11 @@ export function ChatPanel({
   projectName,
   onEditMessage,
   onApproval,
+  queued,
+  onQueue,
+  onSendNow,
+  onRemoveQueued,
+  onStop,
   apiStatus,
   apiProviders,
   requestPhase,
@@ -268,7 +284,15 @@ export function ChatPanel({
 
   const send = async () => {
     const t = text.trim();
-    if (!t || busy || disabled || reading) return;
+    if (!t || disabled || reading) return;
+    if (busy) {
+      // Mientras trabaja, lo que escribís queda en cola para después (o "Enviar ahora").
+      onQueue(t, { attachments, projectPaths, mode });
+      setText("");
+      setAttachments([]);
+      setProjectPaths([]);
+      return;
+    }
     // Venía de Planear y ahora pide empezar: pedimos confirmación antes de tocar archivos.
     if (mode === "edit" && lastModeRef.current === "plan" && APPLY_INTENT.test(t)) {
       setConfirmApply(true);
@@ -690,6 +714,34 @@ export function ChatPanel({
             </Button>
           </div>
         )}
+        {(busy || queued.length > 0) && (
+          <div className="mb-2 space-y-1">
+            {queued.map((q, i) => (
+              <div
+                key={q.id}
+                className="flex items-center gap-2 rounded border bg-panel-deep px-2 py-1 text-xs"
+              >
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {i === 0 ? "Próximo: " : "En cola: "}
+                  {q.text}
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => onSendNow(q.id)}>
+                  Enviar ahora
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => onRemoveQueued(q.id)}>
+                  Quitar
+                </Button>
+              </div>
+            ))}
+            {busy && (
+              <div className="flex justify-end">
+                <Button size="sm" variant="destructive" onClick={onStop}>
+                  Detener
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="rounded-md border bg-background focus-within:ember-glow">
           <textarea
             ref={composer}
@@ -702,7 +754,7 @@ export function ChatPanel({
                 send();
               }
             }}
-            disabled={disabled || busy}
+            disabled={disabled}
             rows={3}
             placeholder={
               disabled
@@ -817,7 +869,7 @@ export function ChatPanel({
               aria-label="Enviar mensaje"
               title="Enviar mensaje"
               onClick={() => void send()}
-              disabled={busy || disabled || reading || !text.trim()}
+              disabled={disabled || reading || !text.trim()}
             >
               <ArrowUp />
             </Button>

@@ -21,6 +21,11 @@ export interface AgentLoopDeps {
   runTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   approve: (calls: ToolCall[]) => Promise<boolean>;
   maxRounds?: number;
+  /** Mensajes que el usuario mandó mientras se trabajaba; se suman en el siguiente paso. */
+  drain?: () => string[];
+  onSteer?: (text: string) => void;
+  /** Si devuelve true, el ciclo se corta en el próximo checkpoint. */
+  shouldStop?: () => boolean;
 }
 
 export interface AgentAction {
@@ -35,6 +40,7 @@ export interface AgentLoopResult {
   model: string | undefined;
   actions: AgentAction[];
   limitReached: boolean;
+  stopped: boolean;
 }
 
 const MAX_TOOL_CHARS = 12_000;
@@ -50,11 +56,21 @@ export async function runAgentLoop(
   let model: string | undefined;
 
   for (let round = 0; round < maxRounds; round++) {
+    if (deps.shouldStop?.()) {
+      return { reply: "Detenido.", provider, model, actions, limitReached: false, stopped: true };
+    }
+    for (const text of deps.drain?.() ?? []) {
+      messages.push({ role: "user", content: text });
+      deps.onSteer?.(text);
+    }
     const step = await deps.ask(messages);
     provider = step.provider;
     model = step.model;
     if (step.type === "final") {
-      return { reply: step.reply, provider, model, actions, limitReached: false };
+      return { reply: step.reply, provider, model, actions, limitReached: false, stopped: false };
+    }
+    if (deps.shouldStop?.()) {
+      return { reply: "Detenido.", provider, model, actions, limitReached: false, stopped: true };
     }
 
     messages.push(step.assistantMessage);
@@ -89,5 +105,6 @@ export async function runAgentLoop(
     model,
     actions,
     limitReached: true,
+    stopped: false,
   };
 }
