@@ -95,3 +95,18 @@ Forja es un piloto/MVP en evolución. La base funcional está lista para probar 
 ## Licencia
 
 Este repositorio no declara todavía una licencia de código abierto. No asumas permisos de redistribución sin consultar al propietario del proyecto.
+
+
+## Agente local (Modificar en tu PC)
+
+Para que la IA lea, cambie y verifique tu carpeta de proyecto, corré el agente en tu computadora:
+
+```bash
+node agent/forja-agent.mjs --root "C:\ruta\a\tu\proyecto"
+```
+
+Muestra un token. En Forja, con el modo **Modificar**, tocá **Agente** en la barra superior y pegalo. La carpeta del agente tiene que ser la misma que abriste en Forja.
+
+- El agente escucha solo en `127.0.0.1` y exige el token.
+- Puede leer, buscar, escribir, mover y borrar archivos dentro de la carpeta, y hacer `git status`, `git diff`, `git log` y `git commit` local. No hace `git push`, no instala paquetes y no ejecuta comandos fuera de la lista permitida.
+- Cada cambio (escribir, borrar, mover, commit, comando) pide tu aprobación antes de correr.

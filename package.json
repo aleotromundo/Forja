@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:agent": "node --test agent/forja-agent.test.mjs",
     "test:watch": "vitest"
   },
   "overrides": {

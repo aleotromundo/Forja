@@ -10,6 +10,7 @@ import {
   Undo2,
   Redo2,
   Save,
+  Terminal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -49,6 +50,16 @@ import {
   type ChatExtras,
 } from "@/lib/chat-context";
 import { editProblems } from "@/lib/edit-checks";
+import { askAgent } from "@/lib/agent.functions";
+import { runAgentLoop, type ToolCall } from "@/lib/agent-loop";
+import { TOOL_ROUTES } from "@/lib/agent-tools";
+import {
+  agentCall,
+  AGENT_URL,
+  clearAgentSettings,
+  hasAgentSettings,
+  saveAgentSettings,
+} from "@/lib/local-agent";
 import {
   chatSessionTitle,
   createChatSession,
@@ -344,6 +355,98 @@ export function Workbench() {
     await refresh();
   };
 
+  const [agentLinked, setAgentLinked] = useState(() => hasAgentSettings());
+
+  const connectAgent = async () => {
+    const token = window.prompt(
+      "Pegá el token que muestra el agente local de Forja (la ventana de tu PC):",
+    );
+    if (!token?.trim()) return;
+    saveAgentSettings({ url: AGENT_URL, token: token.trim() });
+    try {
+      const health = (await agentCall("/health", {})) as { project?: string };
+      if (root && health.project && health.project !== root.name) {
+        window.alert(
+          `Ojo: el agente está en la carpeta "${health.project}" y abriste "${root.name}". Tienen que ser la misma.`,
+        );
+      }
+      setAgentLinked(true);
+    } catch (error) {
+      clearAgentSettings();
+      setAgentLinked(false);
+      window.alert((error as Error).message);
+    }
+  };
+
+  const disconnectAgent = () => {
+    clearAgentSettings();
+    setAgentLinked(false);
+  };
+
+  // Modo agente: el modelo lee, cambia y verifica el proyecto con herramientas en la PC del usuario.
+  const runAgent = async (history: ChatMsg[]) => {
+    if (!root) return;
+    const messages: unknown[] = history
+      .slice(-20)
+      .map((m) => ({ role: m.role, content: m.content }));
+    const result = await runAgentLoop(messages, {
+      ask: async (msgs) => {
+        setRequestPhase("consulting");
+        const step = await askAgent({ data: { messages: msgs } });
+        return step.type === "tool_calls"
+          ? {
+              type: "tool_calls" as const,
+              assistantMessage: step.assistantMessage,
+              calls: step.calls,
+              provider: step.provider,
+              model: step.model,
+            }
+          : { type: "final" as const, reply: step.reply, provider: step.provider, model: step.model };
+      },
+      runTool: async (name, args) => {
+        setRequestPhase("applying");
+        const route = TOOL_ROUTES[name];
+        if (!route) throw new Error(`Herramienta desconocida: ${name}`);
+        return agentCall(route, args);
+      },
+      approve: async (calls: ToolCall[]) =>
+        window.confirm(
+          `La IA quiere hacer ${calls.length} acción(es) en tu proyecto:\n\n${calls
+            .map((c) => `• ${c.name} ${JSON.stringify(c.args).slice(0, 160)}`)
+            .join("\n")}\n\n¿Permitirlo?`,
+        ),
+    });
+
+    const touched = new Set(
+      result.actions.flatMap((a) => (a.toPath ? [a.path, a.toPath] : [a.path])),
+    );
+    for (const tab of tabsRef.current) {
+      if (!touched.has(tab.path)) continue;
+      const content = await readFile(root, tab.path).catch(() => null);
+      setTabs((ts) =>
+        content === null
+          ? ts.filter((t) => t.path !== tab.path)
+          : ts.map((t) => (t.path === tab.path ? { ...t, content, saved: content } : t)),
+      );
+    }
+    if (touched.size > 0) setChanged((c) => new Set([...c, ...touched]));
+    await refresh();
+    setMessages((m) => [
+      ...m,
+      {
+        role: "assistant",
+        content: result.reply,
+        edits: result.actions.map((a) => ({
+          path: a.path,
+          action: a.action,
+          ...(a.toPath ? { toPath: a.toPath } : {}),
+        })),
+        provider: result.provider ?? "agente",
+        team: [],
+      },
+    ]);
+  };
+
   const sendChat = async (
     text: string,
     extras: ChatExtras,
@@ -377,6 +480,11 @@ export function Workbench() {
       });
       setMessages(history);
       setRequestPhase("consulting");
+
+      if (agentLinked && extras.mode !== "plan") {
+        await runAgent(history);
+        return true;
+      }
 
       let res = await ask({
         data: {
@@ -708,6 +816,21 @@ export function Workbench() {
           <Search className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 truncate">{root ? root.name : "Forja"}</span>
           <span className="ml-auto hidden font-mono sm:inline">Ctrl+P</span>
+        </button>
+        <button
+          onClick={() => (agentLinked ? disconnectAgent() : void connectAgent())}
+          title={
+            agentLinked
+              ? "Agente local conectado: la IA puede leer y cambiar tu carpeta. Clic para desconectar."
+              : "Conectar el agente local de tu PC"
+          }
+          className={cn(
+            "shrink-0 rounded px-1.5 py-0.5 hover:bg-accent sm:px-2",
+            agentLinked ? "text-ember" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Terminal className="h-3.5 w-3.5" />
+          <span className="ml-1 hidden xl:inline">{agentLinked ? "Agente: on" : "Agente"}</span>
         </button>
         <span className="hidden w-24 lg:inline-block" />
       </div>

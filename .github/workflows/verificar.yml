@@ -14,5 +14,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Tests
         run: bun run test
+      - name: Tests del agente local
+        run: bun run test:agent
       - name: Build
         run: bun run build

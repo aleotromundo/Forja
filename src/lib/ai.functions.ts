@@ -67,7 +67,7 @@ function withTimeout<T>(operation: Promise<T>, provider: string): Promise<T> {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function enabledSlots(env: Record<string, string | undefined>) {
+export function enabledSlots(env: Record<string, string | undefined>) {
   const slots = buildSlots(env);
   const allowed = (env["FORJA_ENABLED_PROVIDERS"] ?? "groq,gemini")
     .split(/[\s,;]+/)
