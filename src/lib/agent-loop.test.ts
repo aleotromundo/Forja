@@ -40,6 +40,57 @@ describe("agent loop", () => {
     expect(messages.at(-1)).toMatchObject({ role: "tool", tool_call_id: "1" });
   });
 
+  it("continues when the model announces a file action instead of using a tool", async () => {
+    let asks = 0;
+    let read = false;
+    const result = await runAgentLoop([], {
+      ask: async (messages) => {
+        asks++;
+        if (asks === 1)
+          return {
+            type: "final",
+            reply: "Voy a abrir el archivo src/App.tsx para revisarlo.",
+          };
+        if (asks > 2) return { type: "final", reply: "fin" };
+        expect(messages).toContainEqual(
+          expect.objectContaining({
+            role: "user",
+            content: expect.stringContaining("No anuncies una acción pendiente"),
+          }),
+        );
+        return {
+          type: "tool_calls",
+          assistantMessage: { role: "assistant", tool_calls: [] },
+          calls: [{ id: "read", name: "read_file", args: { path: "src/App.tsx" } }],
+        };
+      },
+      runTool: async () => {
+        read = true;
+        return { path: "src/App.tsx", content: "export default App;" };
+      },
+      approve: async () => true,
+    });
+    expect(read).toBe(true);
+    expect(result.reply).toBe("fin");
+  });
+
+  it("reports when the model still does not execute its announced action", async () => {
+    let asks = 0;
+    const result = await runAgentLoop([], {
+      ask: async () => {
+        asks++;
+        return {
+          type: "final",
+          reply: "Voy a abrir el archivo src/App.tsx para revisarlo.",
+        };
+      },
+      runTool: async () => ({}),
+      approve: async () => true,
+    });
+    expect(asks).toBe(2);
+    expect(result.reply).toContain("no ejecutó la lectura");
+  });
+
   it("asks before writing and records the action when approved", async () => {
     let asked = 0;
     const result = await runAgentLoop([], {
