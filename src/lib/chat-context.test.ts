@@ -24,6 +24,11 @@ it("recognizes requests that ask the user to open or paste a project file", () =
       "¿Podés abrir el archivo src/components/forja/Workbench.tsx y compartir su contenido?",
     ),
   ).toBe(true);
+  expect(
+    asksUserForProjectFile(
+      "Para cambiar el color, necesito ver cómo está renderizado. Abrí ese archivo en Forja para que lo revisemos.",
+    ),
+  ).toBe(true);
   expect(asksUserForProjectFile("Could you paste the file contents?")).toBe(true);
   expect(asksUserForProjectFile("Ya revisé Workbench.tsx y encontré el problema.")).toBe(false);
 });

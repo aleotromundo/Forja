@@ -49,7 +49,8 @@ describe("agent loop", () => {
         if (asks === 1)
           return {
             type: "final",
-            reply: "Voy a abrir el archivo src/App.tsx para revisarlo.",
+            reply:
+              "Para cambiar el color, necesito ver cómo está renderizado. Abrí ese archivo en Forja para que lo revisemos.",
           };
         if (asks > 2) return { type: "final", reply: "fin" };
         expect(messages).toContainEqual(
@@ -81,7 +82,7 @@ describe("agent loop", () => {
         asks++;
         return {
           type: "final",
-          reply: "Voy a abrir el archivo src/App.tsx para revisarlo.",
+          reply: "Abrí ese archivo en Forja para que lo revisemos.",
         };
       },
       runTool: async () => ({}),
