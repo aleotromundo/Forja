@@ -52,7 +52,9 @@ import { PreviewPane } from "./PreviewPane";
 import { Button } from "@/components/ui/button";
 import { EditHistory, type HistoryEntry } from "@/lib/edit-history";
 import {
+  asksUserForProjectFile,
   collectChatContext,
+  findMentionedProjectFiles,
   MAX_CONTEXT_FILE_CHARS,
   type ChatExtras,
 } from "@/lib/chat-context";
@@ -777,13 +779,8 @@ export function Workbench() {
       // Memoria del proyecto: se carga si existe.
       wanted.add(".forja/memoria.md");
       const lowerInput = input.toLowerCase();
-      const mentionedFile = files.find((path) => {
-        const name = path.split("/").pop();
-        return (
-          lowerInput.includes(path.toLowerCase()) ||
-          Boolean(name && lowerInput.includes(name.toLowerCase()))
-        );
-      });
+      const mentionedFiles = findMentionedProjectFiles(input, files);
+      const mentionedFile = mentionedFiles[0];
       if (mentionedFile) {
         await openFile(mentionedFile);
         setView("code");
@@ -794,14 +791,31 @@ export function Workbench() {
       tabs.forEach((t) => wanted.add(t.path));
       files.forEach((f) => {
         const name = f.split("/").pop();
-        if (input.includes(f) || (name && input.includes(name))) wanted.add(f);
+        if (
+          lowerInput.includes(f.toLowerCase()) ||
+          (name && lowerInput.includes(name.toLowerCase()))
+        )
+          wanted.add(f);
       });
-      const ctx = await collectChatContext(extras, [...wanted], async (path) => {
-        return (
-          tabsRef.current.find((tab) => tab.path === path)?.content ??
-          (await readFile(root, path).catch(() => null))
-        );
-      });
+      const ctx = await collectChatContext(
+        {
+          ...extras,
+          projectPaths: [...new Set([...extras.projectPaths, ...mentionedFiles])],
+        },
+        [...mentionedFiles, ...wanted],
+        async (path) => {
+          const tab = tabsRef.current.find((item) => item.path === path);
+          if (tab) return tab.content;
+          try {
+            return await readFile(root, path);
+          } catch (error) {
+            if (error instanceof DOMException && error.name === "NotFoundError") return null;
+            throw new Error(
+              `No se pudo leer ${path}: ${error instanceof Error ? error.message : "error de lectura"}`,
+            );
+          }
+        },
+      );
       setMessages(history);
       setRequestPhase("consulting");
 
@@ -831,7 +845,25 @@ export function Workbench() {
       const chatContext = buildContext(history, summary);
 
       if (agentLinked && extras.mode !== "plan") {
-        await runAgent(chatContext);
+        const agentContext =
+          ctx.length === 0
+            ? chatContext
+            : [
+                ...chatContext,
+                {
+                  role: "user" as const,
+                  content: `[Contexto local ya leído por Forja. Usá este contenido directamente; no le pidas al usuario que abra, copie o pegue estos archivos.]\n\n${ctx
+                    .map(
+                      (file) =>
+                        `===== ${file.path} =====\n${file.content
+                          .split("\n")
+                          .map((line, index) => `${index + 1}| ${line}`)
+                          .join("\n")}`,
+                    )
+                    .join("\n\n")}`,
+                },
+              ];
+        await runAgent(agentContext);
         return true;
       }
 
@@ -899,22 +931,27 @@ export function Workbench() {
         }
       }
       // Forja no le pide al usuario que pegue archivos: si lo hace sin cambios, se le corrige una vez.
-      const asksToPaste =
-        /(pegar|pegu[eé]|pegá|facilit|pas[aá]me|mand[aá]me|compart[ií]me|contenido (completo|del archivo|de los archivos))/i;
-      if (res.edits.length === 0 && asksToPaste.test(res.reply) && !stopRef.current) {
+      if (res.edits.length === 0 && asksUserForProjectFile(res.reply) && !stopRef.current) {
         setRequestPhase("consulting");
         resetStreamPreview();
+        const loadedPaths = ctx.map((file) => file.path).join(", ");
         res = await askStreaming({
           ...request,
           messages: [
             ...chatContext,
             {
               role: "user",
-              content:
-                "[Instrucción de Forja] No le pidas al usuario que pegue archivos ni su contenido. Si el archivo está en ARCHIVOS DEL PROYECTO, usalo y hacé el cambio con edits. Si no está en la lista, decí en una o dos frases que no lo encontrás en la carpeta abierta y pedí que lo abra en Forja.",
+              content: `[Instrucción de Forja] No le pidas al usuario que abra, copie, comparta ni pegue un archivo. Ya tenés el contenido local de estos archivos en ARCHIVOS DEL PROYECTO: ${loadedPaths || "ninguno"}. Leelos desde ese contexto y respondé el pedido original. Si el archivo mencionado no está en esa lista, decí que no se pudo leer desde la carpeta abierta; no le pidas al usuario que lo abra ni que pegue el contenido.`,
             },
           ],
         });
+        if (res.edits.length === 0 && asksUserForProjectFile(res.reply)) {
+          res = {
+            ...res,
+            reply:
+              "Ya compartí con la IA el contenido local disponible del proyecto, pero no pudo analizarlo. No hace falta que abras ni pegues el archivo; podés reformular la consulta o intentar de nuevo.",
+          };
+        }
       }
       if (stopRef.current) {
         setLivePreview(null);

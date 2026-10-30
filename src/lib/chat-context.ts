@@ -13,6 +13,24 @@ export const MAX_CONTEXT_FILES = 40;
 export const MAX_CONTEXT_FILE_CHARS = 40_000;
 export const MAX_CONTEXT_CHARS = 60_000;
 
+export function findMentionedProjectFiles(text: string, projectFiles: string[]) {
+  const query = text.toLowerCase();
+  const exactPaths = projectFiles.filter((path) => query.includes(path.toLowerCase()));
+  if (exactPaths.length > 0) return exactPaths;
+
+  const names = projectFiles.filter((path) => {
+    const name = path.split("/").pop();
+    return Boolean(name && query.includes(name.toLowerCase()));
+  });
+  return names.length === 1 ? names : [];
+}
+
+export function asksUserForProjectFile(text: string) {
+  return /\b(?:abrir|abrí|abre|abr[aá]|mostrar|mostrá|muestra|compartir|compartí|compartime|comparta|pegar|pegá|pegame|pasame|mandame|facilitame|open|show|share|paste|send|provide)\b.{0,120}\b(?:archivo|file|contenido|content|c[oó]digo|code|proyecto|project)\b|\b(?:archivo|file|contenido|content|c[oó]digo|code)\b.{0,120}\b(?:peg[aá]|compart[ií]|pas[aá]me|mand[aá]me|show|share|paste|send)\b/i.test(
+    text,
+  );
+}
+
 export async function collectChatContext(
   explicit: ChatExtras,
   automatic: string[],
