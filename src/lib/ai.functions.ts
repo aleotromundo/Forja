@@ -6,8 +6,9 @@ import { MAX_CONTEXT_CHARS, MAX_CONTEXT_FILE_CHARS, MAX_CONTEXT_FILES } from "./
 import { isSafeRelativePath } from "./paths";
 import { WORK_STYLE } from "./work-style";
 import { friendlyFailure, logFailure } from "./friendly-errors";
+import { extractStreamingReply, extractStreamingWrites } from "./ai-stream";
 
-const InputSchema = z.object({
+export const InputSchema = z.object({
   messages: z
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(40000) }))
     .min(1)
@@ -45,6 +46,12 @@ export interface AiResult {
   team: string[];
   more?: boolean;
 }
+
+export type AiProgress =
+  | { type: "reply"; text: string }
+  | { type: "edit"; path: string; content: string; reset?: boolean };
+
+export type AiInput = z.infer<typeof InputSchema>;
 
 export interface AiStatus {
   connected: boolean;
@@ -151,7 +158,61 @@ Cuando "delegate" sea false, respondé directamente y no pidas especialistas. Cu
 
 export const askForja = createServerFn({ method: "POST" })
   .validator((d: unknown) => InputSchema.parse(d))
-  .handler(async ({ data }): Promise<AiResult> => {
+  .handler(({ data }): Promise<AiResult> => executeForja(data));
+
+async function readProviderStream(
+  response: Response,
+  onChunk: (chunk: string) => void,
+): Promise<string> {
+  if (!response.body) throw new Error("El proveedor no devolvió un flujo de respuesta.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let pendingChunk = "";
+  const consumeLine = (line: string) => {
+    if (!line.startsWith("data:")) return;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") return;
+    const event = JSON.parse(data) as {
+      choices?: { delta?: { content?: string }; finish_reason?: string | null }[];
+      error?: { message?: string };
+    };
+    if (event.error?.message) throw new Error(event.error.message);
+    const chunk = event.choices?.[0]?.delta?.content;
+    if (typeof chunk !== "string" || chunk.length === 0) return;
+    text += chunk;
+    pendingChunk += chunk;
+  };
+  const flushChunk = () => {
+    if (!pendingChunk) return;
+    onChunk(pendingChunk);
+    pendingChunk = "";
+  };
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      lines.forEach(consumeLine);
+      flushChunk();
+    }
+    buffer += decoder.decode();
+    if (buffer) consumeLine(buffer);
+    flushChunk();
+    return text;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+export async function executeForja(
+  data: AiInput,
+  onProgress?: (progress: AiProgress) => void,
+  requestSignal?: AbortSignal,
+): Promise<AiResult> {
     const slots = prioritizeSlots(enabledSlots(process.env as Record<string, string | undefined>));
     if (slots.length === 0) {
       throw new Error(
@@ -173,7 +234,13 @@ export const askForja = createServerFn({ method: "POST" })
         .join("\n\n");
 
     type Msg = { role: "system" | "user" | "assistant"; content: string };
-    const call = async (system: string, convo: Msg[], order: typeof slots, json: boolean) => {
+    const call = async (
+      system: string,
+      convo: Msg[],
+      order: typeof slots,
+      json: boolean,
+      onChunk?: (chunk: string) => void,
+    ) => {
       const errors: string[] = [];
       // Estimación gruesa: unos 3.5 caracteres por token.
       const approxTokens =
@@ -187,6 +254,7 @@ export const askForja = createServerFn({ method: "POST" })
         if (slot.provider === "groq" && approxTokens > GROQ_SAFE_TOKENS) continue;
         try {
           let text = "";
+          let streamed = false;
           {
             const headers: Record<string, string> = {
               "Content-Type": "application/json",
@@ -214,6 +282,9 @@ export const askForja = createServerFn({ method: "POST" })
                 if (Date.now() >= deadline) break;
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+                const abortRequest = () => controller.abort();
+                if (requestSignal?.aborted) controller.abort();
+                else requestSignal?.addEventListener("abort", abortRequest, { once: true });
                 const messages =
                   slot.provider === "gemini"
                     ? [
@@ -225,16 +296,27 @@ export const askForja = createServerFn({ method: "POST" })
                         { role: "system" as const, content: context },
                         ...convo,
                       ];
-                res = await fetch(slot.url, {
-                  method: "POST",
-                  headers,
-                  signal: controller.signal,
-                  body: JSON.stringify({
-                    model: candidate,
-                    messages,
-                    ...(slot.provider === "gemini" ? {} : { temperature: json ? 0.2 : 0.4 }),
-                  }),
-                }).finally(() => clearTimeout(timer));
+                try {
+                  res = await fetch(slot.url, {
+                    method: "POST",
+                    headers,
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                      model: candidate,
+                      messages,
+                      ...(slot.provider === "gemini" ? {} : { temperature: json ? 0.2 : 0.4 }),
+                      ...(onChunk ? { stream: true } : {}),
+                    }),
+                  });
+                  if (res.ok && onChunk) {
+                    text = await readProviderStream(res, onChunk);
+                    if (!text) throw new Error("El proveedor devolvió una respuesta vacía.");
+                    streamed = true;
+                  }
+                } finally {
+                  clearTimeout(timer);
+                  requestSignal?.removeEventListener("abort", abortRequest);
+                }
                 if (res.ok || !TRANSIENT_STATUS.has(res.status) || attempt === 2) break;
                 await wait(attempt === 0 ? 1500 : 4000);
               }
@@ -262,6 +344,7 @@ export const askForja = createServerFn({ method: "POST" })
               );
               continue;
             }
+            if (streamed) return { text, provider: slot.provider, model };
             const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
             text = j.choices?.[0]?.message?.content ?? "";
             if (text) return { text, provider: slot.provider, model };
@@ -325,11 +408,24 @@ export const askForja = createServerFn({ method: "POST" })
         }
       }
     }
+    let receiverStreamText = "";
+    let receiverStreamReply = "";
     const receiver = await call(
       `${SYSTEM}\n\n${WORK_STYLE}\n\n${RECEIVER_ROLE}\n${modeInstructions(data.mode)}`,
       data.messages,
       slots,
       true,
+      onProgress
+        ? (chunk) => {
+            receiverStreamText += chunk;
+            const reply = extractStreamingReply(receiverStreamText);
+            if (reply.startsWith(receiverStreamReply)) {
+              const added = reply.slice(receiverStreamReply.length);
+              receiverStreamReply = reply;
+              if (added) onProgress({ type: "reply", text: added });
+            }
+          }
+        : undefined,
     );
     const route = extractJson(receiver.text) as {
       delegate?: unknown;
@@ -368,11 +464,31 @@ export const askForja = createServerFn({ method: "POST" })
       : "";
 
     // The receiver returns as lead and integrates the specialists' notes.
+    let leadStreamText = "";
+    const streamedWrites = new Map<string, string>();
     const lead = await call(
       `${SYSTEM}\n\n${WORK_STYLE}\n\n${LEAD_ROLE}\n${modeInstructions(data.mode)}${teamNotes}`,
       data.messages,
       slots,
       true,
+      onProgress
+        ? (chunk) => {
+            leadStreamText += chunk;
+            for (const edit of extractStreamingWrites(leadStreamText)) {
+              const previous = streamedWrites.get(edit.path) ?? "";
+              if (!edit.content.startsWith(previous)) {
+                streamedWrites.set(edit.path, edit.content);
+                onProgress({ type: "edit", path: edit.path, content: edit.content, reset: true });
+                continue;
+              }
+              const added = edit.content.slice(previous.length);
+              if (added) {
+                streamedWrites.set(edit.path, edit.content);
+                onProgress({ type: "edit", path: edit.path, content: added });
+              }
+            }
+          }
+        : undefined,
     );
     const teamNames = done.map((n) => n.agent.name);
     const parsed = extractJson(lead.text) as {
@@ -480,4 +596,4 @@ PEDIDO ORIGINAL:\n${lastUser}\n\nRESPUESTA DEL LÍDER:\n${typeof parsed.reply ==
       model: lead.model,
       team: teamNames,
     };
-  });
+}

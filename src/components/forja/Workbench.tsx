@@ -21,7 +21,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { askForja, getAiStatus } from "@/lib/ai.functions";
+import { getAiStatus, type AiInput, type AiProgress, type AiResult } from "@/lib/ai.functions";
 import {
   createDir,
   flatten,
@@ -46,7 +46,7 @@ import {
   rememberProject,
   type RecentProject,
 } from "@/lib/recent-projects";
-import { EditorPane, type RevealRequest, type Tab } from "./EditorPane";
+import { EditorPane, type RevealRequest, type Tab, type TransientEditor } from "./EditorPane";
 import { Explorer } from "./Explorer";
 import { PreviewPane } from "./PreviewPane";
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,7 @@ import {
   type ChatSession,
 } from "@/lib/chat-persistence";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { firstCodeBlock } from "@/lib/ai-stream";
 
 type Snapshot = {
   path: string;
@@ -132,8 +133,84 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
 // Pasos automáticos máximos por pedido. Después, el usuario escribe "seguí".
 const MAX_AUTO_STEPS = 8;
 
+function scratchPath(language: string) {
+  const extensions: Record<string, string> = {
+    c: "c",
+    cpp: "cpp",
+    css: "css",
+    go: "go",
+    html: "html",
+    java: "java",
+    js: "js",
+    javascript: "js",
+    json: "json",
+    jsx: "jsx",
+    php: "php",
+    py: "py",
+    python: "py",
+    rb: "rb",
+    rs: "rs",
+    rust: "rs",
+    sql: "sql",
+    ts: "ts",
+    tsx: "tsx",
+    typescript: "ts",
+    bash: "sh",
+    shell: "sh",
+  };
+  return `Ejemplo.${extensions[language.toLowerCase()] ?? "txt"}`;
+}
+
+async function askForjaStreaming(
+  data: AiInput,
+  signal: AbortSignal,
+  onProgress: (progress: AiProgress) => void,
+): Promise<AiResult> {
+  const response = await fetch("/api/ai-stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    signal,
+  });
+  if (!response.ok) {
+    const body = (await response.json()) as { error?: string };
+    throw new Error(body.error ?? "No se pudo iniciar la respuesta de IA.");
+  }
+  if (!response.body) throw new Error("El servidor no inició el flujo de respuesta.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: AiResult | null = null;
+  const consumeLine = (line: string) => {
+    if (!line.startsWith("data:")) return;
+    const event = JSON.parse(line.slice(5).trim()) as
+      | AiProgress
+      | { type: "result"; result: AiResult }
+      | { type: "error"; message: string };
+    if (event.type === "result") result = event.result;
+    else if (event.type === "error") throw new Error(event.message);
+    else onProgress(event);
+  };
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      lines.forEach(consumeLine);
+    }
+    buffer += decoder.decode();
+    if (buffer) consumeLine(buffer);
+  } finally {
+    reader.releaseLock();
+  }
+  if (!result) throw new Error("La respuesta de IA terminó antes de completarse.");
+  return result;
+}
+
 export function Workbench() {
-  const ask = useServerFn(askForja);
   const getStatus = useServerFn(getAiStatus);
   const [root, setRoot] = useState<FileSystemDirectoryHandle | null>(null);
   const [recent, setRecent] = useState<RecentProject[]>([]);
@@ -143,6 +220,9 @@ export function Workbench() {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [active, setActive] = useState<string | null>(null);
+  const [livePreview, setLivePreview] = useState<{ path: string; content: string } | null>(null);
+  const [scratch, setScratch] = useState<{ path: string; content: string } | null>(null);
+  const [transientKind, setTransientKind] = useState<"live" | "scratch" | null>(null);
   const [reveal, setReveal] = useState<RevealRequest | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -166,6 +246,9 @@ export function Workbench() {
   const [, updateHistory] = useState(0);
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
+  const requestControllerRef = useRef<AbortController | null>(null);
+  const streamedReplyRef = useRef("");
+  const streamedEditsRef = useRef(new Map<string, string>());
   const record = (entry: HistoryEntry) => {
     editHistory.current.record(entry);
     updateHistory((v) => v + 1);
@@ -253,6 +336,9 @@ export function Workbench() {
       setRoot(h);
       setTabs([]);
       setActive(null);
+      setLivePreview(null);
+      setScratch(null);
+      setTransientKind(null);
       setChanged(new Set());
       setPreviewContext("");
       setTree(await readTree(h));
@@ -283,6 +369,9 @@ export function Workbench() {
     setActiveSessionId(session.id);
     setMessages([]);
     setPreviewContext("");
+    setLivePreview(null);
+    setScratch(null);
+    setTransientKind(null);
     if (isMobile) setMobilePanel("chat");
   };
 
@@ -292,6 +381,9 @@ export function Workbench() {
     setActiveSessionId(id);
     setMessages(session.messages as ChatMsg[]);
     setPreviewContext("");
+    setLivePreview(null);
+    setScratch(null);
+    setTransientKind(null);
   };
 
   const openFile = useCallback(
@@ -314,6 +406,7 @@ export function Workbench() {
         }
       }
       setActive(path);
+      setTransientKind(null);
     },
     [root, tabs],
   );
@@ -427,6 +520,81 @@ export function Workbench() {
     return new Promise<boolean>((resolve) => approvalWaiters.current.set(id, resolve));
   };
 
+  const applyScratch = async () => {
+    if (!root || !scratch) return;
+    const path = window.prompt("Ruta relativa del archivo:", scratch.path);
+    if (!path) return;
+    if (!isSafeRelativePath(path)) {
+      toast.error("La ruta debe ser relativa y permanecer dentro del proyecto.");
+      return;
+    }
+
+    let before: string | null = tabsRef.current.find((tab) => tab.path === path)?.content ?? null;
+    if (before === null) {
+      try {
+        before = await readFile(root, path);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "NotFoundError") before = null;
+        else {
+          toast.error(`No se pudo leer ${path}: ${(error as Error).message}`);
+          return;
+        }
+      }
+    }
+    if (!(await askApproval([`${before === null ? "Crear" : "Reemplazar"} ${path}`]))) return;
+
+    try {
+      await writeFile(root, path, scratch.content);
+    } catch (error) {
+      toast.error(`No se pudo guardar ${path}: ${(error as Error).message}`);
+      return;
+    }
+    const restore = async (content: string | null) => {
+      if (content === null) await removeEntry(root, path);
+      else await writeFile(root, path, content);
+      setTabs((current) =>
+        content === null
+          ? current.filter((tab) => tab.path !== path)
+          : current.some((tab) => tab.path === path)
+            ? current.map((tab) =>
+                tab.path === path ? { ...tab, content, saved: content } : tab,
+              )
+            : [...current, { path, content, saved: content }],
+      );
+      setActive(content === null ? null : path);
+      setTransientKind(null);
+      setLivePreview(null);
+      await refresh(root);
+    };
+    record({
+      id: messages.length,
+      undo: () => restore(before),
+      redo: () => restore(scratch.content),
+    });
+    setTabs((current) =>
+      current.some((tab) => tab.path === path)
+        ? current.map((tab) =>
+            tab.path === path
+              ? { ...tab, content: scratch.content, saved: scratch.content }
+              : tab,
+          )
+        : [...current, { path, content: scratch.content, saved: scratch.content }],
+    );
+    setActive(path);
+    setTransientKind(null);
+    setLivePreview(null);
+    setChanged((current) => new Set([...current, path]));
+    try {
+      await refresh(root);
+    } catch (error) {
+      toast.error(
+        `Se guardó ${path}, pero no se pudo actualizar el explorador: ${(error as Error).message}`,
+      );
+      return;
+    }
+    toast.success(`Se guardó ${path}`);
+  };
+
   const say = (content: string) =>
     setMessages((ms) => [...ms, { role: "assistant", content, provider: "forja", team: [], error: false }]);
 
@@ -521,6 +689,12 @@ export function Workbench() {
     }
     if (touched.size > 0) setChanged((c) => new Set([...c, ...touched]));
     await refresh();
+    const block = firstCodeBlock(result.reply);
+    if (block) {
+      setScratch({ path: scratchPath(block.language), content: block.content });
+      setTransientKind("scratch");
+      setView("code");
+    }
     setMessages((m) => [
       ...m,
       {
@@ -550,6 +724,12 @@ export function Workbench() {
     const history: ChatMsg[] = [...(base ?? messages), { role: "user", content: input }];
     setBusy(true);
     stopRef.current = false;
+    requestControllerRef.current?.abort();
+    const requestController = new AbortController();
+    requestControllerRef.current = requestController;
+    streamedReplyRef.current = "";
+    streamedEditsRef.current.clear();
+    setLivePreview(null);
     setApiStatus("connecting");
     setRequestPhase("preparing");
     try {
@@ -557,7 +737,16 @@ export function Workbench() {
       const wanted = new Set<string>();
       // Memoria del proyecto: se carga si existe.
       wanted.add(".forja/memoria.md");
-      if (active) wanted.add(active);
+      const mentionedFile = files.find((path) => {
+        const name = path.split("/").pop();
+        return input.includes(path) || Boolean(name && input.includes(name));
+      });
+      if (mentionedFile) {
+        await openFile(mentionedFile);
+        setView("code");
+      }
+      const activePath = mentionedFile ?? active;
+      if (activePath) wanted.add(activePath);
       tabs.forEach((t) => wanted.add(t.path));
       files.forEach((f) => {
         const name = f.split("/").pop();
@@ -602,15 +791,42 @@ export function Workbench() {
         return true;
       }
 
-      let res = await ask({
-        data: {
-          messages: chatContext,
-          files: ctx,
-          tree: files.slice(0, 3000),
-          activePath: active,
-          mode: extras.mode ?? "edit",
-        },
-      });
+      const resetStreamPreview = () => {
+        streamedReplyRef.current = "";
+        streamedEditsRef.current.clear();
+        setLivePreview(null);
+        setTransientKind(null);
+      };
+      const onProgress = (progress: AiProgress) => {
+        if (progress.type === "reply") {
+          streamedReplyRef.current += progress.text;
+          const block = firstCodeBlock(streamedReplyRef.current);
+          if (block) {
+            setScratch({ path: scratchPath(block.language), content: block.content });
+            setTransientKind("scratch");
+            setView("code");
+          }
+          return;
+        }
+        const previous = progress.reset
+          ? ""
+          : (streamedEditsRef.current.get(progress.path) ?? "");
+        const content = progress.reset ? progress.content : previous + progress.content;
+        streamedEditsRef.current.set(progress.path, content);
+        setLivePreview({ path: progress.path, content });
+        setTransientKind("live");
+        setView("code");
+      };
+      const askStreaming = (request: AiInput) =>
+        askForjaStreaming(request, requestController.signal, onProgress);
+      const request: AiInput = {
+        messages: chatContext,
+        files: ctx,
+        tree: files.slice(0, 3000),
+        activePath,
+        mode: extras.mode ?? "edit",
+      };
+      let res = await askStreaming(request);
       // Si la IA nombró un archivo que no tenía en contexto, lo cargamos y le pedimos de nuevo.
       const mentioned = files.filter(
         (f) => !ctx.some((c) => c.path === f) && res.reply.includes(f),
@@ -629,14 +845,10 @@ export function Workbench() {
         );
         if (extra.length > 0) {
           setRequestPhase("consulting");
-          res = await ask({
-            data: {
-              messages: chatContext,
-              files: [...ctx, ...extra],
-              tree: files.slice(0, 3000),
-              activePath: active,
-              mode: extras.mode ?? "edit",
-            },
+          resetStreamPreview();
+          res = await askStreaming({
+            ...request,
+            files: [...ctx, ...extra],
           });
         }
       }
@@ -645,24 +857,22 @@ export function Workbench() {
         /(pegar|pegu[eé]|pegá|facilit|pas[aá]me|mand[aá]me|compart[ií]me|contenido (completo|del archivo|de los archivos))/i;
       if (res.edits.length === 0 && asksToPaste.test(res.reply) && !stopRef.current) {
         setRequestPhase("consulting");
-        res = await ask({
-          data: {
-            messages: [
-              ...chatContext,
-              {
-                role: "user",
-                content:
-                  "[Instrucción de Forja] No le pidas al usuario que pegue archivos ni su contenido. Si el archivo está en ARCHIVOS DEL PROYECTO, usalo y hacé el cambio con edits. Si no está en la lista, decí en una o dos frases que no lo encontrás en la carpeta abierta y pedí que lo abra en Forja.",
-              },
-            ],
-            files: ctx,
-            tree: files.slice(0, 3000),
-            activePath: active,
-            mode: extras.mode ?? "edit",
-          },
+        resetStreamPreview();
+        res = await askStreaming({
+          ...request,
+          messages: [
+            ...chatContext,
+            {
+              role: "user",
+              content:
+                "[Instrucción de Forja] No le pidas al usuario que pegue archivos ni su contenido. Si el archivo está en ARCHIVOS DEL PROYECTO, usalo y hacé el cambio con edits. Si no está en la lista, decí en una o dos frases que no lo encontrás en la carpeta abierta y pedí que lo abra en Forja.",
+            },
+          ],
         });
       }
       if (stopRef.current) {
+        setLivePreview(null);
+        setTransientKind(null);
         setMessages((m) => [
           ...m,
           { role: "assistant", content: "Detenido. No apliqué la respuesta de la IA.", provider: res.provider, team: [] },
@@ -673,6 +883,19 @@ export function Workbench() {
       setRequestPhase("applying");
       setLastProvider(`${res.provider} · ${res.model}`);
       setPreviewContext("");
+      if (res.edits.length === 0) {
+        setLivePreview(null);
+        const codeBlock = firstCodeBlock(res.reply);
+        if (codeBlock) setScratch({ path: scratchPath(codeBlock.language), content: codeBlock.content });
+        setTransientKind(codeBlock ? "scratch" : null);
+        if (!codeBlock) {
+          const discussedFile = files.find((path) => res.reply.includes(path));
+          if (discussedFile) {
+            await openFile(discussedFile);
+            setView("code");
+          }
+        }
+      }
 
       // Apply edits to disk and editor.
       // "open" no modifica archivos: se muestra en una pestaña al final.
@@ -686,6 +909,8 @@ export function Workbench() {
       // Revisión antes de aplicar: si el cambio rompe imports conocidos, no se aplica.
       const problems = editProblems(edits);
       if (problems.length > 0) {
+        setLivePreview(null);
+        setTransientKind(null);
         setMessages((current) => [
           ...current,
           {
@@ -714,6 +939,8 @@ export function Workbench() {
           }),
         ))
       ) {
+        setLivePreview(null);
+        setTransientKind(scratch ? "scratch" : null);
         setMessages((current) => [
           ...current,
           {
@@ -837,6 +1064,10 @@ export function Workbench() {
       });
       const firstWrite = edits.find((e) => e.action === "write");
       if (firstWrite) setActive(firstWrite.path);
+      if (edits.length > 0) {
+        setLivePreview(null);
+        setTransientKind(null);
+      }
       for (const o of opens) await openFile(o.path).catch(() => {});
       setChanged(
         (c) =>
@@ -874,7 +1105,7 @@ export function Workbench() {
                   : `modifiqué ${e.path}`,
           )
           .join(", ");
-        return sendChat(
+        return await sendChat(
           `Paso ${step + 1} aplicado: ${applied || "sin cambios"}. Continuá con el siguiente paso del plan. Si ya no queda nada, respondé con "continuar": false.`,
           { attachments: [], projectPaths: [], ...(extras.mode ? { mode: extras.mode } : {}) },
           step + 1,
@@ -883,14 +1114,21 @@ export function Workbench() {
       }
       setMessages((m) => [...m, assistantMsg]);
     } catch (err) {
-      setApiStatus("offline");
-      setRequestPhase("idle");
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: (err as Error).message, error: true },
-      ]);
+      setLivePreview(null);
+      setTransientKind(null);
+      if (stopRef.current) {
+        setMessages((m) => [...m, { role: "assistant", content: "Detenido. No apliqué cambios." }]);
+      } else {
+        setApiStatus("offline");
+        setRequestPhase("idle");
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: (err as Error).message, error: true },
+        ]);
+      }
       return false;
     } finally {
+      if (requestControllerRef.current === requestController) requestControllerRef.current = null;
       agentActiveRef.current = false;
       const leftover = steerRef.current.splice(0).map((text) => ({
         id: uid(),
@@ -941,6 +1179,7 @@ export function Workbench() {
 
   const stopWork = () => {
     stopRef.current = true;
+    requestControllerRef.current?.abort();
     steerRef.current = [];
     setQueue([]);
     for (const id of [...approvalWaiters.current.keys()]) resolveApproval(id, false);
@@ -987,7 +1226,7 @@ export function Workbench() {
         else setShowChat((v) => !v);
       } else if (mod && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        if (active) save(active);
+        if (active && !transientKind) save(active);
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -995,6 +1234,18 @@ export function Workbench() {
   });
 
   const activeTab = tabs.find((t) => t.path === active);
+  const transient: TransientEditor | null =
+    transientKind === "live" && livePreview
+      ? { ...livePreview, kind: "live" }
+      : transientKind === "scratch" && scratch
+        ? {
+            ...scratch,
+            kind: "scratch",
+            editable: !busy,
+            onChange: (content) =>
+              setScratch((current) => (current ? { ...current, content } : current)),
+          }
+        : null;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
@@ -1159,7 +1410,9 @@ export function Workbench() {
               variant="ghost"
               size="sm"
               className="shrink-0"
-              disabled={!activeTab || busy || activeTab.content === activeTab.saved}
+              disabled={
+                !activeTab || Boolean(transient) || busy || activeTab.content === activeTab.saved
+              }
               title="Guardar archivo (Ctrl+S)"
               onClick={() =>
                 active &&
@@ -1168,6 +1421,21 @@ export function Workbench() {
             >
               <Save /> <span className="hidden lg:inline">Guardar</span>
             </Button>
+            {scratch && !transient && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
+                aria-label="Abrir borrador temporal"
+                title="Abrir borrador temporal"
+                onClick={() => {
+                  setTransientKind("scratch");
+                  setView("code");
+                }}
+              >
+                <Code2 /> <span className="hidden lg:inline">Borrador</span>
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -1233,9 +1501,13 @@ export function Workbench() {
             <div className={cn("h-full", view !== "code" && "hidden")}>
               <EditorPane
                 tabs={tabs}
+                transient={transient}
                 active={active}
                 reveal={reveal}
-                onSelect={setActive}
+                onSelect={(path) => {
+                  setTransientKind(null);
+                  setActive(path);
+                }}
                 onClose={closeTab}
                 onChange={changeText}
                 onSave={save}
@@ -1244,6 +1516,8 @@ export function Workbench() {
                     ts.map((t) => (t.path === p ? { ...t, showDiff: !t.showDiff } : t)),
                   )
                 }
+                onApplyTransient={!busy && approvalWaiters.current.size === 0 ? applyScratch : undefined}
+                onCloseTransient={() => setTransientKind(null)}
               />
             </div>
           </div>

@@ -1,6 +1,6 @@
 import Editor, { DiffEditor, type Monaco } from "@monaco-editor/react";
 import { useEffect, useRef, type ComponentProps } from "react";
-import { GitCompare, X } from "lucide-react";
+import { FileCode2, GitCompare, X } from "lucide-react";
 import { languageOf } from "@/lib/fs";
 import { cn } from "@/lib/utils";
 
@@ -20,10 +20,19 @@ export interface RevealRequest {
   nonce: number;
 }
 
+export interface TransientEditor {
+  path: string;
+  content: string;
+  kind: "live" | "scratch";
+  editable?: boolean;
+  onChange?: (content: string) => void;
+}
+
 type CodeEditor = Parameters<NonNullable<ComponentProps<typeof Editor>["onMount"]>>[0];
 
 interface Props {
   tabs: Tab[];
+  transient?: TransientEditor | null;
   reveal?: RevealRequest | null;
   active: string | null;
   onSelect: (p: string) => void;
@@ -31,6 +40,8 @@ interface Props {
   onChange: (p: string, v: string) => void;
   onSave: (p: string) => void;
   onToggleDiff: (p: string) => void;
+  onApplyTransient?: () => void;
+  onCloseTransient?: () => void;
 }
 
 function defineTheme(monaco: Monaco) {
@@ -73,6 +84,7 @@ const OPTIONS = {
 
 export function EditorPane({
   tabs,
+  transient,
   active,
   reveal,
   onSelect,
@@ -80,8 +92,11 @@ export function EditorPane({
   onChange,
   onSave,
   onToggleDiff,
+  onApplyTransient,
+  onCloseTransient,
 }: Props) {
   const tab = tabs.find((t) => t.path === active);
+  const transientActive = Boolean(transient);
   const editorRef = useRef<CodeEditor | null>(null);
 
   useEffect(() => {
@@ -98,7 +113,7 @@ export function EditorPane({
     return () => cancelAnimationFrame(frame);
   }, [reveal, active]);
   const activeRef = useRef(active);
-  activeRef.current = active;
+  activeRef.current = transientActive ? null : active;
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
 
@@ -135,8 +150,69 @@ export function EditorPane({
             </div>
           );
         })}
+        {transient && (
+          <div
+            className="flex shrink-0 items-center gap-2 border-r border-t-2 border-t-ember bg-tab-active px-3 text-[13px] text-foreground"
+            title={transient.kind === "live" ? "Vista previa temporal" : "Borrador temporal"}
+          >
+            <FileCode2 className="h-3.5 w-3.5 text-ember" />
+            <span className="max-w-[35vw] truncate">{transient.path}</span>
+            {transient.kind === "scratch" && onApplyTransient && (
+              <button
+                type="button"
+                onClick={onApplyTransient}
+                className="rounded px-1.5 py-0.5 text-[11px] text-ember hover:bg-accent"
+              >
+                Crear archivo…
+              </button>
+            )}
+            {onCloseTransient && (
+              <button
+                type="button"
+                aria-label="Volver al archivo del proyecto"
+                title="Volver al archivo del proyecto"
+                onClick={onCloseTransient}
+                className="flex h-4 w-4 items-center justify-center rounded hover:bg-accent"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
-      {tab ? (
+      {transient ? (
+        <>
+          <div className="flex h-7 shrink-0 items-center justify-between px-4 font-mono text-xs text-muted-foreground">
+            <span>{transient.kind === "live" ? "Vista previa en vivo · no guardada" : "Borrador temporal · no guardado"}</span>
+            <span>{transient.path}</span>
+          </div>
+          <div className="min-h-0 flex-1">
+            <Editor
+              path={`forja-transient:/${transient.kind}/${transient.path
+                .split("/")
+                .map(encodeURIComponent)
+                .join("/")}`}
+              keepCurrentModel
+              theme="forja"
+              beforeMount={defineTheme}
+              value={transient.content}
+              language={languageOf(transient.path)}
+              options={{
+                ...OPTIONS,
+                readOnly: transient.kind === "live" || transient.editable !== true,
+              }}
+              onChange={
+                transient.kind === "scratch" && transient.editable
+                  ? (value) => transient.onChange?.(value ?? "")
+                  : undefined
+              }
+              onMount={(editor) => {
+                editorRef.current = editor;
+              }}
+            />
+          </div>
+        </>
+      ) : tab ? (
         <>
           <div className="flex h-7 shrink-0 items-center justify-between px-4 font-mono text-xs text-muted-foreground">
             <span>{tab.path.split("/").join(" › ")}</span>
