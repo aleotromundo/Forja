@@ -16,7 +16,7 @@ const MAX_BODY = 2_000_000;
 const MAX_OUT = 20_000;
 const MAX_READ = 300_000;
 const MAX_TREE = 3000;
-const TIMEOUT_MS = 120_000;
+const TIMEOUT_MS = 300_000;
 const IGNORED = new Set([".git", "node_modules", ".output", ".wrangler", ".tanstack", ".nitro", "dist"]);
 
 // Comandos que se pueden pedir con run_command. Cada entrada es el inicio permitido.
@@ -26,10 +26,16 @@ export const ALLOWED_COMMANDS = [
   ["git", "log"],
   ["npm", "run"],
   ["npm", "test"],
+  ["pnpm", "run"],
+  ["pnpm", "test"],
+  ["pnpm", "exec", "tsc"],
+  ["pnpm", "exec", "vitest"],
+  ["pnpm", "exec", "prettier"],
   ["bun", "run"],
   ["bun", "test"],
   ["npx", "tsc"],
   ["npx", "vitest"],
+  ["npx", "prettier"],
 ];
 const INTERPRETERS = {
   node: { test: /\.m?js$/i, label: ".js o .mjs" },
@@ -78,19 +84,29 @@ function runProcess(cwd, file, args, { shell = false } = {}) {
       env: { ...process.env, GIT_PAGER: "cat", CI: "1" },
     });
     let out = "";
+    let timedOut = false;
     const add = (chunk) => {
       if (out.length < MAX_OUT * 2) out += chunk.toString();
     };
     child.stdout.on("data", add);
     child.stderr.on("data", add);
-    const timer = setTimeout(() => child.kill(), TIMEOUT_MS);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, TIMEOUT_MS);
     child.on("error", (error) => {
       clearTimeout(timer);
-      resolve({ code: -1, output: error.message });
+      resolve({ code: -1, output: error.message, timedOut: false });
     });
     child.on("close", (code) => {
       clearTimeout(timer);
-      resolve({ code, output: out.slice(0, MAX_OUT) });
+      resolve({
+        code: timedOut ? -2 : code,
+        output: timedOut
+          ? `${out.slice(0, MAX_OUT)}\n\nComando detenido: superó el límite de ${TIMEOUT_MS / 1000}s.`
+          : out.slice(0, MAX_OUT),
+        timedOut,
+      });
     });
   });
 }

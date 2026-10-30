@@ -19,6 +19,24 @@ test("resolveInside keeps paths inside the project", () => {
 test("parseCommand allows only read and project commands", () => {
   assert.deepEqual(parseCommand("git status"), ["git", "status"]);
   assert.deepEqual(parseCommand("npm run build"), ["npm", "run", "build"]);
+  assert.deepEqual(parseCommand("pnpm run test"), ["pnpm", "run", "test"]);
+  assert.deepEqual(parseCommand("pnpm run lint"), ["pnpm", "run", "lint"]);
+  assert.deepEqual(parseCommand("pnpm run build"), ["pnpm", "run", "build"]);
+  assert.deepEqual(parseCommand("pnpm exec tsc --noEmit"), ["pnpm", "exec", "tsc", "--noEmit"]);
+  assert.deepEqual(parseCommand("pnpm exec vitest run"), ["pnpm", "exec", "vitest", "run"]);
+  assert.deepEqual(parseCommand("pnpm exec prettier --check src"), [
+    "pnpm",
+    "exec",
+    "prettier",
+    "--check",
+    "src",
+  ]);
+  assert.deepEqual(parseCommand("npx prettier --check src"), [
+    "npx",
+    "prettier",
+    "--check",
+    "src",
+  ]);
   assert.throws(() => parseCommand("git push origin main"), /no permitido/);
   assert.throws(() => parseCommand("node -e 1"), /node con un archivo/);
   assert.deepEqual(parseCommand("node scripts/resumen.js"), ["node", "scripts/resumen.js"]);
@@ -30,6 +48,7 @@ test("parseCommand allows only read and project commands", () => {
   assert.throws(() => parseCommand("python -c 1"), /python con un archivo/);
   assert.throws(() => parseCommand("python3 ../x.py"), /python3 con un archivo/);
   assert.throws(() => parseCommand("npm install evil"), /no permitido/);
+  assert.throws(() => parseCommand("pnpm install"), /no permitido/);
   assert.throws(() => parseCommand("git status; rm -rf /"), /no permitidos/);
   assert.throws(() => parseCommand("npm run build && curl x"), /no permitidos/);
   assert.throws(() => parseCommand("git status $(whoami)"), /no permitidos/);

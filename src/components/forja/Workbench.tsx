@@ -213,6 +213,8 @@ async function askForjaStreaming(
 export function Workbench() {
   const getStatus = useServerFn(getAiStatus);
   const [root, setRoot] = useState<FileSystemDirectoryHandle | null>(null);
+  const rootRef = useRef(root);
+  rootRef.current = root;
   const [recent, setRecent] = useState<RecentProject[]>([]);
   useEffect(() => {
     void listRecent().then(setRecent);
@@ -223,6 +225,8 @@ export function Workbench() {
   const [livePreview, setLivePreview] = useState<{ path: string; content: string } | null>(null);
   const [scratch, setScratch] = useState<{ path: string; content: string } | null>(null);
   const [transientKind, setTransientKind] = useState<"live" | "scratch" | null>(null);
+  const [applyingScratch, setApplyingScratch] = useState(false);
+  const applyingScratchRef = useRef(false);
   const [reveal, setReveal] = useState<RevealRequest | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -506,6 +510,7 @@ export function Workbench() {
 
   // Pregunta de permiso dentro del chat (tarjeta con Aprobar / Rechazar).
   const askApproval = (items: string[]) => {
+    if (isMobile) setMobilePanel("chat");
     const id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setMessages((ms) => [
       ...ms,
@@ -521,78 +526,95 @@ export function Workbench() {
   };
 
   const applyScratch = async () => {
-    if (!root || !scratch) return;
-    const path = window.prompt("Ruta relativa del archivo:", scratch.path);
-    if (!path) return;
-    if (!isSafeRelativePath(path)) {
-      toast.error("La ruta debe ser relativa y permanecer dentro del proyecto.");
-      return;
-    }
+    if (!root || !scratch || applyingScratchRef.current) return;
+    const folder = root;
+    const draft = scratch;
+    applyingScratchRef.current = true;
+    setApplyingScratch(true);
+    try {
+      const path = window.prompt("Ruta relativa del archivo:", draft.path);
+      if (!path) return;
+      if (!isSafeRelativePath(path)) {
+        toast.error("La ruta debe ser relativa y permanecer dentro del proyecto.");
+        return;
+      }
 
-    let before: string | null = tabsRef.current.find((tab) => tab.path === path)?.content ?? null;
-    if (before === null) {
-      try {
-        before = await readFile(root, path);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "NotFoundError") before = null;
-        else {
-          toast.error(`No se pudo leer ${path}: ${(error as Error).message}`);
-          return;
+      let before: string | null = tabsRef.current.find((tab) => tab.path === path)?.content ?? null;
+      if (before === null) {
+        try {
+          before = await readFile(folder, path);
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "NotFoundError") before = null;
+          else {
+            toast.error(`No se pudo leer ${path}: ${(error as Error).message}`);
+            return;
+          }
         }
       }
-    }
-    if (!(await askApproval([`${before === null ? "Crear" : "Reemplazar"} ${path}`]))) return;
+      if (!(await askApproval([`${before === null ? "Crear" : "Reemplazar"} ${path}`]))) return;
+      if (rootRef.current !== folder) {
+        toast.error("El proyecto cambió. Volvé a abrir el borrador para aplicarlo.");
+        return;
+      }
 
-    try {
-      await writeFile(root, path, scratch.content);
-    } catch (error) {
-      toast.error(`No se pudo guardar ${path}: ${(error as Error).message}`);
-      return;
-    }
-    const restore = async (content: string | null) => {
-      if (content === null) await removeEntry(root, path);
-      else await writeFile(root, path, content);
+      try {
+        await writeFile(folder, path, draft.content);
+      } catch (error) {
+        toast.error(`No se pudo guardar ${path}: ${(error as Error).message}`);
+        return;
+      }
+      if (rootRef.current !== folder) {
+        toast.info(`Se guardó ${path} en ${folder.name}, que ya no es el proyecto activo.`);
+        return;
+      }
+      const restore = async (content: string | null) => {
+        if (content === null) await removeEntry(folder, path);
+        else await writeFile(folder, path, content);
+        setTabs((current) =>
+          content === null
+            ? current.filter((tab) => tab.path !== path)
+            : current.some((tab) => tab.path === path)
+              ? current.map((tab) =>
+                  tab.path === path ? { ...tab, content, saved: content } : tab,
+                )
+              : [...current, { path, content, saved: content }],
+        );
+        setActive(content === null ? null : path);
+        setTransientKind(null);
+        setLivePreview(null);
+        await refresh(folder);
+      };
+      record({
+        undo: () => restore(before),
+        redo: () => restore(draft.content),
+      });
       setTabs((current) =>
-        content === null
-          ? current.filter((tab) => tab.path !== path)
-          : current.some((tab) => tab.path === path)
-            ? current.map((tab) =>
-                tab.path === path ? { ...tab, content, saved: content } : tab,
-              )
-            : [...current, { path, content, saved: content }],
+        current.some((tab) => tab.path === path)
+          ? current.map((tab) =>
+              tab.path === path
+                ? { ...tab, content: draft.content, saved: draft.content }
+                : tab,
+            )
+          : [...current, { path, content: draft.content, saved: draft.content }],
       );
-      setActive(content === null ? null : path);
+      setActive(path);
       setTransientKind(null);
       setLivePreview(null);
-      await refresh(root);
-    };
-    record({
-      id: messages.length,
-      undo: () => restore(before),
-      redo: () => restore(scratch.content),
-    });
-    setTabs((current) =>
-      current.some((tab) => tab.path === path)
-        ? current.map((tab) =>
-            tab.path === path
-              ? { ...tab, content: scratch.content, saved: scratch.content }
-              : tab,
-          )
-        : [...current, { path, content: scratch.content, saved: scratch.content }],
-    );
-    setActive(path);
-    setTransientKind(null);
-    setLivePreview(null);
-    setChanged((current) => new Set([...current, path]));
-    try {
-      await refresh(root);
-    } catch (error) {
-      toast.error(
-        `Se guardó ${path}, pero no se pudo actualizar el explorador: ${(error as Error).message}`,
-      );
-      return;
+      if (isMobile) setMobilePanel("editor");
+      setChanged((current) => new Set([...current, path]));
+      try {
+        await refresh(folder);
+      } catch (error) {
+        toast.error(
+          `Se guardó ${path}, pero no se pudo actualizar el explorador: ${(error as Error).message}`,
+        );
+        return;
+      }
+      toast.success(`Se guardó ${path}`);
+    } finally {
+      applyingScratchRef.current = false;
+      setApplyingScratch(false);
     }
-    toast.success(`Se guardó ${path}`);
   };
 
   const say = (content: string) =>
@@ -694,12 +716,29 @@ export function Workbench() {
       setScratch({ path: scratchPath(block.language), content: block.content });
       setTransientKind("scratch");
       setView("code");
+      if (isMobile) setMobilePanel("editor");
     }
+    const actionSummary = result.actions
+      .map((action) =>
+        action.action === "move"
+          ? `${action.path} → ${action.toPath}`
+          : `${action.action}: ${action.path}`,
+      )
+      .join(", ");
+    const finalReply = result.limitReached
+      ? `Trabajo parcial: se alcanzó el límite de pasos del agente. ${
+          actionSummary ? `Cambios ya realizados: ${actionSummary}. ` : ""
+        }No está confirmado como terminado. ${result.reply}`
+      : result.stopped
+        ? `Trabajo detenido por pedido del usuario.${
+            actionSummary ? ` Cambios ya realizados: ${actionSummary}.` : " No se aplicaron cambios."
+          }`
+        : result.reply;
     setMessages((m) => [
       ...m,
       {
         role: "assistant",
-        content: result.reply,
+        content: finalReply,
         edits: result.actions.map((a) => ({
           path: a.path,
           action: a.action,
@@ -737,13 +776,18 @@ export function Workbench() {
       const wanted = new Set<string>();
       // Memoria del proyecto: se carga si existe.
       wanted.add(".forja/memoria.md");
+      const lowerInput = input.toLowerCase();
       const mentionedFile = files.find((path) => {
         const name = path.split("/").pop();
-        return input.includes(path) || Boolean(name && input.includes(name));
+        return (
+          lowerInput.includes(path.toLowerCase()) ||
+          Boolean(name && lowerInput.includes(name.toLowerCase()))
+        );
       });
       if (mentionedFile) {
         await openFile(mentionedFile);
         setView("code");
+        if (isMobile) setMobilePanel("editor");
       }
       const activePath = mentionedFile ?? active;
       if (activePath) wanted.add(activePath);
@@ -805,6 +849,7 @@ export function Workbench() {
             setScratch({ path: scratchPath(block.language), content: block.content });
             setTransientKind("scratch");
             setView("code");
+            if (isMobile) setMobilePanel("editor");
           }
           return;
         }
@@ -816,6 +861,7 @@ export function Workbench() {
         setLivePreview({ path: progress.path, content });
         setTransientKind("live");
         setView("code");
+        if (isMobile) setMobilePanel("editor");
       };
       const askStreaming = (request: AiInput) =>
         askForjaStreaming(request, requestController.signal, onProgress);
@@ -886,13 +932,20 @@ export function Workbench() {
       if (res.edits.length === 0) {
         setLivePreview(null);
         const codeBlock = firstCodeBlock(res.reply);
-        if (codeBlock) setScratch({ path: scratchPath(codeBlock.language), content: codeBlock.content });
+        if (codeBlock) {
+          setScratch({ path: scratchPath(codeBlock.language), content: codeBlock.content });
+          if (isMobile) setMobilePanel("editor");
+        }
         setTransientKind(codeBlock ? "scratch" : null);
         if (!codeBlock) {
-          const discussedFile = files.find((path) => res.reply.includes(path));
+          const lowerReply = res.reply.toLowerCase();
+          const discussedFile = files.find((path) =>
+            lowerReply.includes(path.toLowerCase()),
+          );
           if (discussedFile) {
             await openFile(discussedFile);
             setView("code");
+            if (isMobile) setMobilePanel("editor");
           }
         }
       }
@@ -940,7 +993,7 @@ export function Workbench() {
         ))
       ) {
         setLivePreview(null);
-        setTransientKind(scratch ? "scratch" : null);
+        setTransientKind(null);
         setMessages((current) => [
           ...current,
           {
@@ -1067,6 +1120,7 @@ export function Workbench() {
       if (edits.length > 0) {
         setLivePreview(null);
         setTransientKind(null);
+        if (isMobile) setMobilePanel("editor");
       }
       for (const o of opens) await openFile(o.path).catch(() => {});
       setChanged(
@@ -1255,6 +1309,7 @@ export function Workbench() {
         <span className="font-semibold tracking-wide">Forja</span>
         <button
           onClick={openFolder}
+          disabled={applyingScratch}
           className="shrink-0 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground sm:px-2"
         >
           <span className="hidden lg:inline">Abrir carpeta</span>
@@ -1516,7 +1571,11 @@ export function Workbench() {
                     ts.map((t) => (t.path === p ? { ...t, showDiff: !t.showDiff } : t)),
                   )
                 }
-                onApplyTransient={!busy && approvalWaiters.current.size === 0 ? applyScratch : undefined}
+                onApplyTransient={
+                  !busy && !applyingScratch && approvalWaiters.current.size === 0
+                    ? applyScratch
+                    : undefined
+                }
                 onCloseTransient={() => setTransientKind(null)}
               />
             </div>
@@ -1553,6 +1612,7 @@ export function Workbench() {
                 onStop={stopWork}
                 apiStatus={apiStatus}
                 apiProviders={apiProviders}
+                agentLinked={agentLinked}
                 requestPhase={requestPhase}
                 sessions={sessions}
                 activeSessionId={activeSessionId}

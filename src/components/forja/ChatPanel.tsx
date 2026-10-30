@@ -145,6 +145,7 @@ interface Props {
   onStop: () => void;
   apiStatus: "connecting" | "connected" | "offline";
   apiProviders: string[];
+  agentLinked: boolean;
   requestPhase: "idle" | "preparing" | "consulting" | "applying";
   sessions: ChatSession[];
   activeSessionId: string | null;
@@ -189,6 +190,7 @@ export function ChatPanel({
   onStop,
   apiStatus,
   apiProviders,
+  agentLinked,
   requestPhase,
   sessions,
   activeSessionId,
@@ -385,7 +387,9 @@ export function ChatPanel({
               title={
                 m === "plan"
                   ? "Conversar ideas sin tocar archivos"
-                  : "La IA puede modificar archivos"
+                  : agentLinked
+                    ? "La IA puede modificar archivos y ejecutar tests, tipos, lint y build locales. Cada comando requiere tu aprobación."
+                    : "La IA puede modificar archivos, pero no validar localmente. Conectá el agente para habilitar tests, tipos, lint y build."
               }
               className={cn(
                 "rounded px-2 py-0.5 text-[11px]",

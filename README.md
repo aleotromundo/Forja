@@ -108,5 +108,6 @@ node agent/forja-agent.mjs --root "C:\ruta\a\tu\proyecto"
 Muestra un token. En Forja, con el modo **Modificar**, tocá **Agente** en la barra superior y pegalo. La carpeta del agente tiene que ser la misma que abriste en Forja.
 
 - El agente escucha solo en `127.0.0.1` y exige el token.
-- Puede leer, buscar, escribir, mover y borrar archivos dentro de la carpeta, y hacer `git status`, `git diff`, `git log` y `git commit` local. No hace `git push`, no instala paquetes y no ejecuta comandos fuera de la lista permitida.
+- Puede leer, buscar, escribir, mover y borrar archivos dentro de la carpeta, hacer operaciones Git locales y ejecutar validaciones aprobadas como `pnpm run test|lint|build`, `pnpm exec tsc --noEmit`, `pnpm exec vitest run`, `pnpm exec prettier --check <ruta>` y `git diff --check`. También admite los equivalentes npm/bun indicados por el agente. No hace `git push`, no instala paquetes y no ejecuta comandos fuera de la lista permitida.
 - Cada cambio (escribir, borrar, mover, commit, comando) pide tu aprobación antes de correr.
+- Los comandos locales se limitan a cinco minutos y muestran su código de salida. En **Modificar**, el agente revisa los resultados, corrige y repite las validaciones afectadas si algo falla; si el agente local no está conectado, Forja no puede ejecutar estas comprobaciones y debe indicarlo.

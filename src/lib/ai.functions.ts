@@ -132,6 +132,7 @@ Reglas:
 - Si el usuario pidió un cambio, aplicalo con "edits" en esta misma respuesta. No pidas permiso ni confirmación para editar, salvo que el pedido sea ambiguo.
 - Nunca escribas en "reply" tu razonamiento, planes internos ni JSON. "reply" es solo la explicación para el usuario.
 - Nunca mandes un "write" con "content" vacío.
+- En esta modalidad no tenés acceso a la terminal ni podés ejecutar tests, compilación, lint o validaciones locales. Nunca afirmes que corriste una validación ni que pasó; si es relevante, aclarale al usuario que necesita conectar el agente local para verificarla.
 - Si el pedido necesita varios pasos, hacé solo el primer paso con edits y poné "continuar": true. Forja aplica tus cambios, te cuenta qué quedó hecho y te pide el siguiente paso. Cuando no quede nada, poné "continuar": false.
 - Para abrir un archivo en Forja después de los cambios, usá {"path": "ruta/relativa.ext", "action": "open"}. No abre nada en tu computadora; solo lo muestra en la app.
 - Memoria del proyecto: si existe .forja/memoria.md, es la memoria del proyecto y tiene que respetarse. Cuando aprendas algo duradero (decisiones, convenciones, qué está hecho y qué falta), actualizalo con un "write" que traiga el contenido completo: lo anterior más lo nuevo. Mantenelo corto.
@@ -213,6 +214,7 @@ export async function executeForja(
   onProgress?: (progress: AiProgress) => void,
   requestSignal?: AbortSignal,
 ): Promise<AiResult> {
+    if (requestSignal?.aborted) throw new Error("La solicitud fue detenida.");
     const slots = prioritizeSlots(enabledSlots(process.env as Record<string, string | undefined>));
     if (slots.length === 0) {
       throw new Error(
@@ -280,6 +282,7 @@ export async function executeForja(
               model = candidate;
               for (let attempt = 0; attempt < 3; attempt++) {
                 if (Date.now() >= deadline) break;
+                if (requestSignal?.aborted) throw new Error("La solicitud fue detenida.");
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
                 const abortRequest = () => controller.abort();
@@ -352,6 +355,7 @@ export async function executeForja(
           if (text) return { text, provider: slot.provider, model: slot.model };
         } catch (err) {
           const error = err as Error;
+          if (requestSignal?.aborted) throw error;
           errors.push(
             `${slot.envVar} (${slot.provider} · ${slot.model}): ${error.name === "AbortError" ? `no respondió en ${PROVIDER_TIMEOUT_MS / 1000}s` : error.message}`,
           );
@@ -374,6 +378,9 @@ export async function executeForja(
         try {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+          const abortSearch = () => controller.abort();
+          if (requestSignal?.aborted) controller.abort();
+          else requestSignal?.addEventListener("abort", abortSearch, { once: true });
           const webResponse = await fetch(webSlot.url, {
             method: "POST",
             headers: {
@@ -395,7 +402,10 @@ export async function executeForja(
               tool_choice: "required",
               tools: [{ type: "browser_search" }],
             }),
-          }).finally(() => clearTimeout(timer));
+          }).finally(() => {
+            clearTimeout(timer);
+            requestSignal?.removeEventListener("abort", abortSearch);
+          });
           if (webResponse.ok) {
             const result = (await webResponse.json()) as {
               choices?: { message?: { content?: string } }[];
@@ -471,7 +481,7 @@ export async function executeForja(
       data.messages,
       slots,
       true,
-      onProgress
+      data.mode === "edit" && onProgress
         ? (chunk) => {
             leadStreamText += chunk;
             for (const edit of extractStreamingWrites(leadStreamText)) {

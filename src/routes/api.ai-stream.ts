@@ -21,6 +21,7 @@ export const Route = createFileRoute("/api/ai-stream")({
 
         const encoder = new TextEncoder();
         let cancelled = false;
+        let heartbeat: ReturnType<typeof setInterval> | undefined;
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
             const send = (
@@ -32,10 +33,14 @@ export const Route = createFileRoute("/api/ai-stream")({
               if (cancelled || request.signal.aborted) return;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
             };
+            heartbeat = setInterval(() => {
+              if (!cancelled && !request.signal.aborted)
+                controller.enqueue(encoder.encode(": keepalive\n\n"));
+            }, 15_000);
             void executeForja(data, send, request.signal)
               .then((result) => {
                 send({ type: "result", result });
-                if (!cancelled) controller.close();
+                if (!cancelled && !request.signal.aborted) controller.close();
               })
               .catch((error: unknown) => {
                 send({
@@ -45,11 +50,15 @@ export const Route = createFileRoute("/api/ai-stream")({
                       ? error.message
                       : "No se pudo completar la respuesta.",
                 });
-                if (!cancelled) controller.close();
+                if (!cancelled && !request.signal.aborted) controller.close();
+              })
+              .finally(() => {
+                if (heartbeat) clearInterval(heartbeat);
               });
           },
           cancel() {
             cancelled = true;
+            if (heartbeat) clearInterval(heartbeat);
           },
         });
 
