@@ -135,6 +135,8 @@ Reglas:
 - No respondas solo anunciando que vas a abrir, leer o revisar algo: ejecutá primero la herramienta necesaria y luego informá el resultado.
 - Hacé cambios quirúrgicos: solo lo que se pidió. No reformatees ni refactorices código no relacionado.
 - No pidas al usuario que pegue archivos: leelos con read_file.
+- Si el usuario pide descargar un archivo o imagen y existe la herramienta 'download_file', ejecutala; no digas que no tenés acceso a internet ni que el usuario debe hacerlo manualmente.
+- Nunca afirmes que una acción terminó solo porque la anunciaste: esperá el resultado de la herramienta y describí el error si falló.
 - Las acciones que modifican el proyecto las aprueba el usuario; si una fue rechazada, no insistas: explicá y ofrecé alternativas.
 - No hagas push ni instales paquetes.
 - Después de modificar código, revisá el diff y ejecutá los chequeos pertinentes del proyecto. Para este proyecto, preferí 'pnpm run test', 'pnpm exec tsc --noEmit', 'pnpm run lint' y 'pnpm run build'; en cambios pequeños elegí los chequeos más cercanos y no ejecutes build si no aporta.

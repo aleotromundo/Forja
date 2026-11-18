@@ -59,6 +59,7 @@ export async function runAgentLoop(
   let provider: string | undefined;
   let model: string | undefined;
   let promptedPendingAction = false;
+  const toolErrors: string[] = [];
 
   for (let round = 0; round < maxRounds; round++) {
     if (deps.shouldStop?.()) {
@@ -94,7 +95,11 @@ export async function runAgentLoop(
           stopped: false,
         };
       }
-      return { reply: step.reply, provider, model, actions, limitReached: false, stopped: false };
+      const reply =
+        toolErrors.length > 0
+          ? `La operación no se confirmó porque una herramienta falló: ${toolErrors.join("; ")}`
+          : step.reply;
+      return { reply, provider, model, actions, limitReached: false, stopped: false };
     }
     if (deps.shouldStop?.()) {
       return { reply: "Detenido.", provider, model, actions, limitReached: false, stopped: true };
@@ -112,6 +117,9 @@ export async function runAgentLoop(
         try {
           const result = await deps.runTool(call.name, call.args);
           content = JSON.stringify(result ?? { ok: true }).slice(0, MAX_TOOL_CHARS);
+          if (result && typeof result === "object" && "error" in result) {
+            toolErrors.push(String(result.error));
+          }
           const kind = FILE_ACTIONS[call.name];
           if (kind && !(result && typeof result === "object" && "error" in result)) {
             const path = String(call.args["path"] ?? "");
@@ -120,7 +128,9 @@ export async function runAgentLoop(
             actions.push({ path, action: kind, ...(toPath ? { toPath } : {}) });
           }
         } catch (error) {
-          content = JSON.stringify({ error: (error as Error).message }).slice(0, MAX_TOOL_CHARS);
+          const message = (error as Error).message;
+          toolErrors.push(message);
+          content = JSON.stringify({ error: message }).slice(0, MAX_TOOL_CHARS);
         }
       }
       messages.push({ role: "tool", tool_call_id: call.id, content });

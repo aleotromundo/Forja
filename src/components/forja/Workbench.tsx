@@ -170,6 +170,25 @@ function scratchPath(language: string) {
   return `Ejemplo.${extensions[language.toLowerCase()] ?? "txt"}`;
 }
 
+function directDownloadRequest(input: string) {
+  if (!DOWNLOAD_REQUEST.test(input)) return null;
+  const urlMatch = input.match(/https?:\/\/[^\s<>'"`]+/i);
+  if (!urlMatch) return null;
+  const url = urlMatch[0].replace(/[),.;]+$/, "");
+  let filename = "download.bin";
+  try {
+    const last = decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "");
+    if (/^[\w.-]+$/.test(last) && last.includes(".")) filename = last;
+  } catch {
+    /* La validación definitiva la hace el agente local. */
+  }
+  const destinationMatch = input.match(
+    /(?:como|en|a|ruta(?:\s+de)?|path)\s*[:=]?\s*["'`]?([^\s"'`]+)["'`]?/i,
+  );
+  const path = destinationMatch?.[1] ?? `public/${filename}`;
+  return { url, path };
+}
+
 async function askForjaStreaming(
   data: AiInput,
   signal: AbortSignal,
@@ -896,6 +915,51 @@ export function Workbench() {
         }
       }
       const chatContext = buildContext(history, summary);
+
+      const directDownload = directDownloadRequest(input);
+      if (directDownload && agentLinked && extras.mode !== "plan") {
+        const call: ToolCall = {
+          id: `download-${Date.now()}`,
+          name: "download_file",
+          args: directDownload,
+        };
+        const approved =
+          autonomy === "unattended" ||
+          (await askApproval([`download_file ${JSON.stringify(directDownload)}`]));
+        if (!approved) {
+          setMessages((m) => [
+            ...m,
+            { role: "assistant", content: "Descarga cancelada.", provider: "agente", team: [] },
+          ]);
+          return true;
+        }
+        setRequestPhase("applying");
+        try {
+          await agentCall(TOOL_ROUTES["download_file"]!, call.args);
+          await refresh();
+          setMessages((m) => [
+            ...m,
+            {
+              role: "assistant",
+              content: `Descarga completada: ${directDownload.path}`,
+              provider: "agente",
+              team: [],
+            },
+          ]);
+        } catch (error) {
+          setMessages((m) => [
+            ...m,
+            {
+              role: "assistant",
+              content: `No se pudo descargar el archivo: ${(error as Error).message}`,
+              provider: "agente",
+              team: [],
+              error: true,
+            },
+          ]);
+        }
+        return true;
+      }
 
       if (agentLinked && extras.mode !== "plan") {
         const agentContext =
