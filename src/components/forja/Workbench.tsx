@@ -135,6 +135,8 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
 
 // Pasos automáticos máximos por pedido. Después, el usuario escribe "seguí".
 const MAX_AUTO_STEPS = 8;
+const DOWNLOAD_REQUEST =
+  /(?:descarg[aá]|baj[aá]|download|guard[aá]).{0,240}https?:\/\/\S+|https?:\/\/\S+.{0,240}(?:imagen|archivo|png|jpe?g|gif|webp|svg|pdf|binario)/i;
 
 function scratchPath(language: string) {
   const extensions: Record<string, string> = {
@@ -911,7 +913,17 @@ export function Workbench() {
       const askStreaming = (request: AiInput) =>
         askForjaStreaming(request, requestController.signal, onProgress);
       const request: AiInput = {
-        messages: chatContext,
+        messages:
+          !agentLinked && extras.mode !== "plan" && DOWNLOAD_REQUEST.test(input)
+            ? [
+                ...chatContext,
+                {
+                  role: "user" as const,
+                  content:
+                    "[Capacidad local] El agente local no está conectado. No afirmes que la descarga binaria es imposible: explicá que para descargar esa URL dentro del proyecto el usuario debe conectar el agente local desde Modificar. Si el agente está conectado, usá la herramienta download_file.",
+                },
+              ]
+            : chatContext,
         files: ctx,
         tree: files.slice(0, 3000),
         activePath,
