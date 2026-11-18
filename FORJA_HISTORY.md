@@ -12,6 +12,8 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se aclaró en la memoria y el README que los proveedores implementados actualmente son Groq, Gemini y OpenRouter. Las menciones históricas a xAI/Lovable se conservan como historia, pero no representan capacidades presentes.
 - No se pudieron ejecutar tests, lint, TypeScript ni build en este entorno porque no están instalados Node.js, npm ni pnpm.
 - Se creó `FORJA_IMPROVEMENT_INDEX.md` como índice operativo único para prioridades, reglas, protocolo de continuidad y registro de sesiones, pensado para retomar el trabajo aunque cambie la IA.
+- Se agregó el primer modo persistente `Asistido/Desatendido` en el chat. En modo desatendido, el agente y las ediciones confirmadas no esperan aprobaciones intermedias; Planear continúa sin modificar archivos.
+- Validación: 60 tests pasaron, TypeScript pasó y el build pasó. Lint todavía reporta 419 diferencias de formato heredadas que se tratarán por separado.
 
 ## 2026-10-22
 

@@ -15,9 +15,18 @@ import { pathToFileURL } from "node:url";
 const MAX_BODY = 2_000_000;
 const MAX_OUT = 20_000;
 const MAX_READ = 300_000;
+const MAX_DOWNLOAD = 20_000_000;
 const MAX_TREE = 3000;
 const TIMEOUT_MS = 300_000;
-const IGNORED = new Set([".git", "node_modules", ".output", ".wrangler", ".tanstack", ".nitro", "dist"]);
+const IGNORED = new Set([
+  ".git",
+  "node_modules",
+  ".output",
+  ".wrangler",
+  ".tanstack",
+  ".nitro",
+  "dist",
+]);
 
 // Comandos que se pueden pedir con run_command. Cada entrada es el inicio permitido.
 export const ALLOWED_COMMANDS = [
@@ -45,14 +54,17 @@ const INTERPRETERS = {
 const FORBIDDEN = /[&|;<>`$()'"\\*?{}\n\r]/;
 
 export function resolveInside(root, rel) {
-  if (typeof rel !== "string" || rel.length > 500 || rel.includes("\0")) throw new Error("Ruta inválida.");
+  if (typeof rel !== "string" || rel.length > 500 || rel.includes("\0"))
+    throw new Error("Ruta inválida.");
   if (path.isAbsolute(rel) || /^[A-Za-z]:/.test(rel) || rel.startsWith("\\")) {
     throw new Error("Ruta absoluta no permitida.");
   }
   const parts = rel.split(/[\\/]+/).filter((p) => p !== "" && p !== ".");
-  if (parts.some((p) => p === "..")) throw new Error("No se permite salir de la carpeta del proyecto.");
+  if (parts.some((p) => p === ".."))
+    throw new Error("No se permite salir de la carpeta del proyecto.");
   const full = path.resolve(root, ...parts);
-  if (full !== root && !full.startsWith(root + path.sep)) throw new Error("Ruta fuera del proyecto.");
+  if (full !== root && !full.startsWith(root + path.sep))
+    throw new Error("Ruta fuera del proyecto.");
   return full;
 }
 
@@ -64,13 +76,21 @@ export function parseCommand(line) {
   const interpreter = INTERPRETERS[parts[0]];
   if (interpreter) {
     const script = parts[1] ?? "";
-    if (parts.length !== 2 || !interpreter.test.test(script) || script.startsWith("-") || script.includes("..")) {
-      throw new Error(`Solo se puede ejecutar ${parts[0]} con un archivo ${interpreter.label} del proyecto.`);
+    if (
+      parts.length !== 2 ||
+      !interpreter.test.test(script) ||
+      script.startsWith("-") ||
+      script.includes("..")
+    ) {
+      throw new Error(
+        `Solo se puede ejecutar ${parts[0]} con un archivo ${interpreter.label} del proyecto.`,
+      );
     }
     return parts;
   }
   const allowed = ALLOWED_COMMANDS.some((prefix) => prefix.every((p, i) => parts[i] === p));
-  if (!allowed) throw new Error(`Comando no permitido: ${parts.slice(0, 2).join(" ") || "(vacío)"}`);
+  if (!allowed)
+    throw new Error(`Comando no permitido: ${parts.slice(0, 2).join(" ") || "(vacío)"}`);
   return parts;
 }
 
@@ -148,6 +168,34 @@ function looksText(buffer) {
   return !buffer.subarray(0, 1000).includes(0);
 }
 
+function safeDownloadUrl(raw) {
+  if (typeof raw !== "string" || raw.length > 2000) throw new Error("URL inválida.");
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("URL inválida.");
+  }
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("Solo se permiten URLs HTTP o HTTPS.");
+  }
+  const host = url.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "127.0.0.1" ||
+    host === "0.0.0.0" ||
+    host === "::1" ||
+    host === "169.254.169.254" ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+  ) {
+    throw new Error("No se permiten destinos locales o privados.");
+  }
+  return url;
+}
+
 export function createAgent({ root, token }) {
   if (!token || token.length < 16) throw new Error("El token debe tener al menos 16 caracteres.");
   const realRoot = fsSync.realpathSync(path.resolve(root));
@@ -172,14 +220,16 @@ export function createAgent({ root, token }) {
     "/fs/read": async ({ path: rel }) => {
       const full = await safe(rel);
       const stat = await fs.stat(full);
-      if (stat.size > MAX_READ) throw new Error("El archivo es demasiado grande para leerlo completo.");
+      if (stat.size > MAX_READ)
+        throw new Error("El archivo es demasiado grande para leerlo completo.");
       const buffer = await fs.readFile(full);
       if (!looksText(buffer)) throw new Error("No es un archivo de texto.");
       return { path: rel, content: buffer.toString("utf8") };
     },
 
     "/fs/write": async ({ path: rel, content }) => {
-      if (typeof content !== "string" || content.length > MAX_READ * 4) throw new Error("Contenido inválido.");
+      if (typeof content !== "string" || content.length > MAX_READ * 4)
+        throw new Error("Contenido inválido.");
       const full = await safe(rel);
       await fs.mkdir(path.dirname(full), { recursive: true });
       await fs.writeFile(full, content, "utf8");
@@ -192,7 +242,8 @@ export function createAgent({ root, token }) {
     },
 
     "/fs/delete": async ({ path: rel }) => {
-      if (!rel || rel === "." || rel === "/") throw new Error("No se puede borrar la carpeta del proyecto.");
+      if (!rel || rel === "." || rel === "/")
+        throw new Error("No se puede borrar la carpeta del proyecto.");
       await fs.rm(await safe(rel), { recursive: true, force: false });
       return { ok: true, path: rel };
     },
@@ -206,8 +257,30 @@ export function createAgent({ root, token }) {
       return { ok: true, path: from, toPath };
     },
 
+    "/fs/download": async ({ url: rawUrl, path: rel }) => {
+      const url = safeDownloadUrl(rawUrl);
+      const full = await safe(rel);
+      const response = await fetch(url, { redirect: "follow" });
+      const finalUrl = new URL(response.url || url.href);
+      safeDownloadUrl(finalUrl.href);
+      if (!response.ok) throw new Error(`La descarga respondió ${response.status}.`);
+      const declared = Number(response.headers.get("content-length") ?? 0);
+      if (declared > MAX_DOWNLOAD) throw new Error("El archivo supera el límite de 20 MB.");
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length > MAX_DOWNLOAD) throw new Error("El archivo supera el límite de 20 MB.");
+      await fs.mkdir(path.dirname(full), { recursive: true });
+      await fs.writeFile(full, buffer);
+      return {
+        ok: true,
+        path: rel,
+        bytes: buffer.length,
+        contentType: response.headers.get("content-type") ?? "application/octet-stream",
+      };
+    },
+
     "/fs/search": async ({ query }) => {
-      if (typeof query !== "string" || query.length < 2) throw new Error("La búsqueda necesita al menos 2 caracteres.");
+      if (typeof query !== "string" || query.length < 2)
+        throw new Error("La búsqueda necesita al menos 2 caracteres.");
       const needle = query.toLowerCase();
       const matches = [];
       for (const file of (await walk(realRoot)).filter((f) => f.size <= MAX_READ)) {
@@ -235,7 +308,12 @@ export function createAgent({ root, token }) {
       return runProcess(realRoot, "git", args);
     },
     "/git/commit": async ({ message }) => {
-      if (typeof message !== "string" || !message.trim() || message.length > 200 || message.startsWith("-")) {
+      if (
+        typeof message !== "string" ||
+        !message.trim() ||
+        message.length > 200 ||
+        message.startsWith("-")
+      ) {
         throw new Error("Mensaje de commit inválido.");
       }
       const added = await runProcess(realRoot, "git", ["add", "-A"]);

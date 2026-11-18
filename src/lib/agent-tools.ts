@@ -6,6 +6,7 @@ export const APPROVAL_REQUIRED = new Set([
   "make_dir",
   "delete_path",
   "move_path",
+  "download_file",
   "git_commit",
   "run_command",
 ]);
@@ -17,6 +18,7 @@ export const TOOL_ROUTES: Record<string, string> = {
   make_dir: "/fs/mkdir",
   delete_path: "/fs/delete",
   move_path: "/fs/move",
+  download_file: "/fs/download",
   search_text: "/fs/search",
   git_status: "/git/status",
   git_log: "/git/log",
@@ -31,6 +33,7 @@ export const FILE_ACTIONS: Record<string, "write" | "mkdir" | "delete" | "move">
   make_dir: "mkdir",
   delete_path: "delete",
   move_path: "move",
+  download_file: "write",
 };
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({
@@ -74,6 +77,11 @@ export const AGENT_TOOLS = [
     "move_path",
     "Mueve o renombra un archivo o carpeta. Requiere aprobación.",
     obj({ path: str("ruta origen"), toPath: str("ruta destino") }, ["path", "toPath"]),
+  ),
+  fn(
+    "download_file",
+    "Descarga un archivo binario desde una URL HTTP o HTTPS y lo guarda dentro del proyecto. Requiere aprobación.",
+    obj({ url: str("URL HTTP o HTTPS"), path: str("ruta relativa de destino") }, ["url", "path"]),
   ),
   fn(
     "search_text",

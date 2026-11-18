@@ -17,7 +17,7 @@ La IA no debe limitarse a generar código para copiar. Debe actuar sobre el proy
 - Agente local: lectura, búsqueda, escritura, movimientos, Git y comandos permitidos con aprobación.
 - IA: proveedores implementados actualmente Groq, Gemini y OpenRouter.
 - Contexto: archivos seleccionados o mencionados, árbol del proyecto, archivo activo, pestañas y memoria del proyecto.
-- Pruebas de esta ronda: no ejecutables en el entorno actual porque no están instalados Node.js, npm ni pnpm.
+- Validación actual: 60 tests pasaron, TypeScript y build pasaron; lint aún reporta 419 diferencias de formato heredadas.
 
 ## Orden de trabajo
 
@@ -41,6 +41,7 @@ La IA no debe limitarse a generar código para copiar. Debe actuar sobre el proy
 - [ ] Agregar pruebas de integración del Workbench y del agente local, no solo pruebas de funciones puras.
 - [ ] Revisar consistencia entre `README.md`, `AGENTS.md`, `FORJA_HISTORY.md`, esta guía y el comportamiento real.
 - [ ] Diseñar tareas en segundo plano con agentes especializados: cola, estado, progreso, resultados, cancelación y aprobación antes de aplicar cambios.
+- [x] Incorporar un interruptor persistente Asistido/Desatendido para que los cambios confirmados puedan avanzar sin aprobaciones intermedias.
 
 ### P2 — Convertirlo en un agente de desarrollo más completo
 
@@ -92,6 +93,7 @@ La IA no debe limitarse a generar código para copiar. Debe actuar sobre el proy
 - La lista de proveedores debe reflejar siempre el código real; actualmente es Groq, Gemini y OpenRouter.
 - Las funcionalidades nuevas deben reforzar primero el flujo completo sobre repositorios reales.
 - Los especialistas actuales pueden colaborar dentro de una consulta; el siguiente nivel es convertirlos en tareas persistentes que sigan trabajando mientras el usuario conversa.
+- El modo desatendido es opt-in y persistente por proyecto de navegador; todavía falta agregar límites de tiempo, cuenta regresiva, pausa, cancelación y checkpoints.
 
 ## Registro breve de sesiones
 
