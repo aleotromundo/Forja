@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Forja",
+  "version": "0.1.0",
+  "identifier": "app.forja.editor",
+  "build": {
+    "beforeDevCommand": "pnpm run dev -- --host 127.0.0.1",
+    "devUrl": "http://127.0.0.1:8080",
+    "frontendDist": "../.output/public"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Forja",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all"
+  }
+}
