@@ -16,6 +16,7 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Validación: 60 tests pasaron, TypeScript pasó y el build pasó. Lint todavía reporta 419 diferencias de formato heredadas que se tratarán por separado.
 - Se agregó la herramienta `download_file` al agente local para descargar archivos binarios desde URLs públicas HTTP/HTTPS dentro de la carpeta autorizada, con límite de 20 MB y bloqueo de destinos locales o privados.
 - `pnpm run test:agent`: 4 tests pasaron, incluyendo la validación de URLs públicas y destinos bloqueados.
+- Se agregó `agent/start-forja-agent.bat` y su script PowerShell: inicia el agente, genera el token y abre Forja con un enlace de emparejamiento de un solo uso en el fragmento privado de la URL.
 
 ## 2026-10-22
 

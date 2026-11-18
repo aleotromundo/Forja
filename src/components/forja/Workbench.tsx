@@ -653,6 +653,26 @@ export function Workbench() {
     setAgentLinked(false);
   };
 
+  useEffect(() => {
+    const hash = window.location.hash.startsWith("#")
+      ? new URLSearchParams(window.location.hash.slice(1))
+      : null;
+    const token = hash?.get("agentToken");
+    if (!token) return;
+    saveAgentSettings({ url: AGENT_URL, token });
+    window.history.replaceState(
+      {},
+      document.title,
+      `${window.location.pathname}${window.location.search}`,
+    );
+    void agentCall("/health", {})
+      .then(() => setAgentLinked(true))
+      .catch(() => {
+        clearAgentSettings();
+        say("No pude conectar automáticamente el agente local. Ejecutá el lanzador nuevamente.");
+      });
+  }, []);
+
   // Modo agente: el modelo lee, cambia y verifica el proyecto con herramientas en la PC del usuario.
   const runAgent = async (chatContext: { role: "user" | "assistant"; content: string }[]) => {
     if (!root) return;

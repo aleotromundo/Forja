@@ -105,6 +105,8 @@ Para que la IA lea, cambie y verifique tu carpeta de proyecto, corré el agente 
 node agent/forja-agent.mjs --root "C:\ruta\a\tu\proyecto"
 ```
 
+En Windows también podés ejecutar `agent/start-forja-agent.bat`. Te pide la carpeta, inicia el agente y abre Forja con la conexión preparada automáticamente. Requiere Node.js instalado y hay que dejar la ventana abierta mientras se usa el agente.
+
 Muestra un token. En Forja, con el modo **Modificar**, tocá **Agente** en la barra superior y pegalo. La carpeta del agente tiene que ser la misma que abriste en Forja.
 
 - El agente escucha solo en `127.0.0.1` y exige el token.
