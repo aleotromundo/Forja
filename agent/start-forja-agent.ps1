@@ -4,7 +4,29 @@ param(
 )
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
-  $Root = Read-Host "Ruta de la carpeta del proyecto"
+  Add-Type -AssemblyName System.Windows.Forms
+  $current = (Get-Location).Path
+  $looksLikeProject = (Test-Path (Join-Path $current ".git")) -or (Test-Path (Join-Path $current "package.json"))
+  if ($looksLikeProject) {
+    $answer = [System.Windows.Forms.MessageBox]::Show(
+      "¿Usar esta carpeta como proyecto de Forja?`n`n$current",
+      "Forja",
+      [System.Windows.Forms.MessageBoxButtons]::YesNo,
+      [System.Windows.Forms.MessageBoxIcon]::Question
+    )
+    if ($answer -eq [System.Windows.Forms.DialogResult]::Yes) {
+      $Root = $current
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($Root)) {
+    $picker = New-Object System.Windows.Forms.FolderBrowserDialog
+    $picker.Description = "Elegí la carpeta del proyecto para Forja"
+    $picker.UseDescriptionForTitle = $true
+    if ($picker.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+      exit 0
+    }
+    $Root = $picker.SelectedPath
+  }
 }
 
 if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
@@ -18,7 +40,7 @@ if (-not $node) {
   exit 1
 }
 
-$token = (& node -e "process.stdout.write(require('crypto').randomBytes(24).toString('base64url'))").Trim()
+$token = ([guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")).Trim()
 if (-not $token) {
   Write-Error "No se pudo generar el token local."
   exit 1
@@ -31,4 +53,8 @@ Start-Process $pairUrl
 Write-Host "Forja se está conectando automáticamente."
 Write-Host "Carpeta: $((Resolve-Path -LiteralPath $Root).Path)"
 Write-Host "Dejá esta ventana abierta mientras uses el agente."
-& node (Join-Path $PSScriptRoot "forja-agent.mjs") --root $Root --token $token
+$agentScript = Join-Path $PSScriptRoot "forja-agent.mjs"
+if (-not (Test-Path -LiteralPath $agentScript)) {
+  Invoke-WebRequest "https://raw.githubusercontent.com/aleotromundo/Forja/main/agent/forja-agent.mjs" -OutFile $agentScript
+}
+& node $agentScript --root $Root --token $token

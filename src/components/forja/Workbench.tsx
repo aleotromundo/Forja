@@ -10,8 +10,8 @@ import {
   Undo2,
   Redo2,
   Save,
-    Terminal,
-    Download,
+  Terminal,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -138,7 +138,7 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
 const MAX_AUTO_STEPS = 8;
 const DOWNLOAD_REQUEST =
   /(?:descarg[aá]|baj[aá]|download|guard[aá]).{0,240}https?:\/\/\S+|https?:\/\/\S+.{0,240}(?:imagen|archivo|png|jpe?g|gif|webp|svg|pdf|binario)/i;
-const DESKTOP_INSTALLER_URL = import.meta.env.VITE_DESKTOP_INSTALLER_URL as string | undefined;
+const DESKTOP_INSTALLER_URL = import.meta.env["VITE_DESKTOP_INSTALLER_URL"] as string | undefined;
 
 function scratchPath(language: string) {
   const extensions: Record<string, string> = {
