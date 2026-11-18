@@ -18,6 +18,7 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - `pnpm run test:agent`: 4 tests pasaron, incluyendo la validación de URLs públicas y destinos bloqueados.
 - Se agregó `agent/start-forja-agent.bat` y su script PowerShell: inicia el agente, genera el token y abre Forja con un enlace de emparejamiento de un solo uso en el fragmento privado de la URL.
 - Se agregó el esqueleto inicial de Tauri en `src-tauri/`. Rust quedó instalado; el instalador de Visual Studio Build Tools falló con código 5008, por lo que el empaquetado nativo queda pendiente de resolver el toolchain MSVC.
+- Se agregó `scripts/setup-desktop.ps1` y `DESKTOP.md` con requisitos, diagnóstico y comandos reproducibles para preparar y construir la app Tauri.
 
 ## 2026-10-22
 
