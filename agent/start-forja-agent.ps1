@@ -1,6 +1,6 @@
 param(
   [string]$Root = "",
-  [string]$ForjaUrl = "https://forja.app/"
+  [string]$ForjaUrl = "https://forjah.vercel.app/"
 )
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
