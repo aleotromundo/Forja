@@ -19,7 +19,11 @@
     </main>
     <script>
       if (window.__TAURI__?.core?.invoke) {
-        window.__TAURI__.core.invoke("open_forja").catch(console.error);
+        window.__TAURI__.core.invoke("start_forja").catch((error) => {
+          console.error(error);
+          document.querySelector("main").innerHTML =
+            "<p>No se pudo iniciar Forja. Verificá que Node.js esté instalado y volvé a intentarlo.</p>";
+        });
       } else {
         window.location.replace("https://forjah.vercel.app/");
       }

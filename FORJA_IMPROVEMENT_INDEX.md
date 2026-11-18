@@ -47,6 +47,8 @@ La IA no debe limitarse a generar código para copiar. Debe actuar sobre el proy
 - [ ] Publicar la app de escritorio Tauri y habilitar el botón `Escritorio` mediante `VITE_DESKTOP_INSTALLER_URL` (el instalador local ya fue generado).
 - [x] Crear el esqueleto Tauri, configuración de ventana y comandos `desktop:dev`, `desktop:build` y `desktop:check`.
 - [x] Agregar `scripts/setup-desktop.ps1` y `DESKTOP.md` para reproducir la preparación de la app de escritorio.
+- [x] Hacer que Tauri inicie automáticamente el agente local, seleccione la carpeta y empareje la web sin el lanzador `.bat`.
+- [ ] Migrar las operaciones del agente HTTP a IPC nativo de Tauri, siguiendo el modelo de servidor local privado de OpenCode.
 
 ### P2 — Convertirlo en un agente de desarrollo más completo
 

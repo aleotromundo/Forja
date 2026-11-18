@@ -31,4 +31,6 @@ pnpm run desktop:build  # genera el instalador Tauri
 
 ## Estado actual
 
-El esqueleto Tauri, la ventana principal y los comandos ya están configurados. `pnpm run desktop:build` genera instaladores MSI y NSIS. La primera versión abre la interfaz web publicada y conserva el agente HTTP existente; el siguiente paso es mover el agente a comandos Tauri y publicar una release para habilitar el botón **Escritorio** de la web.
+La app Tauri inicia el agente local automáticamente: al abrirla muestra el selector de carpeta, arranca `agent/forja-agent.mjs` con un token temporal y abre `https://forjah.vercel.app/` ya emparejada. Ya no requiere ejecutar el `.bat` por separado, aunque Node.js debe estar instalado.
+
+`pnpm run desktop:build` genera instaladores MSI y NSIS. La siguiente evolución es reemplazar este puente HTTP por comandos IPC nativos, siguiendo el modelo de servidor local privado de OpenCode.
