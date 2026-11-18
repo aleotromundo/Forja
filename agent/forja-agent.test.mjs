@@ -31,12 +31,7 @@ test("parseCommand allows only read and project commands", () => {
     "--check",
     "src",
   ]);
-  assert.deepEqual(parseCommand("npx prettier --check src"), [
-    "npx",
-    "prettier",
-    "--check",
-    "src",
-  ]);
+  assert.deepEqual(parseCommand("npx prettier --check src"), ["npx", "prettier", "--check", "src"]);
   assert.throws(() => parseCommand("git push origin main"), /no permitido/);
   assert.throws(() => parseCommand("node -e 1"), /node con un archivo/);
   assert.deepEqual(parseCommand("node scripts/resumen.js"), ["node", "scripts/resumen.js"]);
@@ -58,7 +53,10 @@ test("download URLs allow public HTTP(S) and reject local targets", () => {
   assert.equal(safeDownloadUrl("https://example.com/image.png").protocol, "https:");
   assert.throws(() => safeDownloadUrl("file:///C:/secret.txt"), /HTTP o HTTPS/);
   assert.throws(() => safeDownloadUrl("http://127.0.0.1:8080/image.png"), /locales o privados/);
-  assert.throws(() => safeDownloadUrl("http://169.254.169.254/latest/meta-data"), /locales o privados/);
+  assert.throws(
+    () => safeDownloadUrl("http://169.254.169.254/latest/meta-data"),
+    /locales o privados/,
+  );
 });
 
 test("HTTP agent requires the token and works on files", async () => {
