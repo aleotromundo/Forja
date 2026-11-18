@@ -5,8 +5,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
-use tauri::Manager;
-use tauri_plugin_opener::OpenerExt;
+use tauri::{Manager, Url};
 use uuid::Uuid;
 
 const FORJA_URL: &str = "https://forjah.vercel.app/";
@@ -33,15 +32,13 @@ fn start_forja(app: tauri::AppHandle, state: tauri::State<'_, AgentProcess>) -> 
         .map_err(|error| format!("No se pudo iniciar el agente local: {error}"))?;
     wait_for_agent(&mut child)?;
     *state.0.lock().map_err(|_| "No se pudo guardar el agente local.".to_string())? = Some(child);
-    app.opener()
-        .open_url(
-            format!(
-                "{FORJA_URL}#agentToken={token}&projectName={}",
-                urlencoding::encode(project_name)
-            ),
-            None::<&str>,
-        )
-        .map_err(|error| error.to_string())?;
+    navigate_forja(
+        &app,
+        &format!(
+            "{FORJA_URL}#agentToken={token}&projectName={}",
+            urlencoding::encode(project_name)
+        ),
+    )?;
     Ok(root.display().to_string())
 }
 
@@ -74,8 +71,15 @@ fn agent_script(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 #[tauri::command]
 fn open_forja(app: tauri::AppHandle) -> Result<(), String> {
-    app.opener()
-        .open_url(FORJA_URL, None::<&str>)
+    navigate_forja(&app, FORJA_URL)
+}
+
+fn navigate_forja(app: &tauri::AppHandle, url: &str) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "No se encontró la ventana principal de Forja.".to_string())?;
+    window
+        .navigate(Url::parse(url).map_err(|error| error.to_string())?)
         .map_err(|error| error.to_string())
 }
 
