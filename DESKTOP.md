@@ -31,4 +31,4 @@ pnpm run desktop:build  # genera el instalador Tauri
 
 ## Estado actual
 
-El esqueleto Tauri, la ventana principal y los comandos ya están configurados. La primera versión todavía usa la interfaz web y el agente HTTP existente; el siguiente paso es mover el agente a comandos Tauri y después publicar el instalador para habilitar el botón **Escritorio** de la web.
+El esqueleto Tauri, la ventana principal y los comandos ya están configurados. `pnpm run desktop:build` genera instaladores MSI y NSIS. La primera versión abre la interfaz web publicada y conserva el agente HTTP existente; el siguiente paso es mover el agente a comandos Tauri y publicar una release para habilitar el botón **Escritorio** de la web.
