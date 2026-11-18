@@ -1,4 +1,5 @@
 // Local folder access through the browser File System Access API.
+import { agentCall } from "./local-agent";
 
 export interface FileNode {
   name: string;
@@ -25,6 +26,76 @@ type DirHandle = FileSystemDirectoryHandle & {
 
 export function isSupported() {
   return typeof window !== "undefined" && "showDirectoryPicker" in window;
+}
+
+/** Handle virtual para el modo escritorio: usa el agente local sin pedir otro selector. */
+export function createAgentDirectoryHandle(name: string): FileSystemDirectoryHandle {
+  return new AgentDirectoryHandle(name, "") as unknown as FileSystemDirectoryHandle;
+}
+
+class AgentDirectoryHandle {
+  readonly kind = "directory" as const;
+  constructor(
+    readonly name: string,
+    private readonly base: string,
+  ) {}
+
+  async *values(): AsyncGenerator<AgentFileHandle | AgentDirectoryHandle> {
+    const result = (await agentCall("/fs/tree", {})) as { files?: Array<{ path: string }> };
+    const prefix = this.base ? `${this.base}/` : "";
+    const entries = new Map<string, "file" | "directory">();
+    for (const file of result.files ?? []) {
+      if (!file.path.startsWith(prefix)) continue;
+      const relative = file.path.slice(prefix.length);
+      const [entry, ...rest] = relative.split("/");
+      if (!entry) continue;
+      entries.set(entry, rest.length ? "directory" : "file");
+    }
+    for (const [entry, kind] of entries) {
+      const path = this.base ? `${this.base}/${entry}` : entry;
+      yield kind === "file"
+        ? new AgentFileHandle(entry, path)
+        : new AgentDirectoryHandle(entry, path);
+    }
+  }
+
+  async getDirectoryHandle(name: string) {
+    return new AgentDirectoryHandle(name, this.base ? `${this.base}/${name}` : name);
+  }
+
+  async getFileHandle(name: string) {
+    return new AgentFileHandle(name, this.base ? `${this.base}/${name}` : name);
+  }
+
+  async removeEntry(name: string) {
+    await agentCall("/fs/delete", { path: this.base ? `${this.base}/${name}` : name });
+  }
+}
+
+class AgentFileHandle {
+  readonly kind = "file" as const;
+  constructor(
+    readonly name: string,
+    private readonly path: string,
+  ) {}
+
+  async getFile() {
+    const result = (await agentCall("/fs/read", { path: this.path })) as { content?: string };
+    const blob = new Blob([result.content ?? ""], { type: "text/plain" });
+    return new File([blob], this.name, { type: "text/plain" });
+  }
+
+  async createWritable() {
+    let content = "";
+    return {
+      write: async (value: string | ArrayBuffer) => {
+        content = typeof value === "string" ? value : new TextDecoder().decode(value);
+      },
+      close: async () => {
+        await agentCall("/fs/write", { path: this.path, content });
+      },
+    };
+  }
 }
 
 export async function pickFolder(): Promise<FileSystemDirectoryHandle> {

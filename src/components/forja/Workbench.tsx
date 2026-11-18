@@ -31,6 +31,7 @@ import {
   languageOf,
   moveEntry,
   pickFolder,
+  createAgentDirectoryHandle,
   readFile,
   readTree,
   removeEntry,
@@ -709,6 +710,9 @@ export function Workbench() {
         if (recentProject && (await ensureAccess(recentProject.handle))) {
           await openHandle(recentProject.handle);
           toast.success(`Proyecto reutilizado: ${projectName}`);
+        } else {
+          await openHandle(createAgentDirectoryHandle(projectName));
+          toast.success(`Proyecto conectado: ${projectName}`);
         }
       })
       .catch(() => {
