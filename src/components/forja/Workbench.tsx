@@ -138,7 +138,9 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
 const MAX_AUTO_STEPS = 8;
 const DOWNLOAD_REQUEST =
   /(?:descarg[aá]|baj[aá]|download|guard[aá]).{0,240}https?:\/\/\S+|https?:\/\/\S+.{0,240}(?:imagen|archivo|png|jpe?g|gif|webp|svg|pdf|binario)/i;
-const DESKTOP_INSTALLER_URL = import.meta.env["VITE_DESKTOP_INSTALLER_URL"] as string | undefined;
+const DESKTOP_INSTALLER_URL =
+  (import.meta.env["VITE_DESKTOP_INSTALLER_URL"] as string | undefined) ||
+  "/downloads/Forja_0.1.0_x64-setup.exe";
 
 function scratchPath(language: string) {
   const extensions: Record<string, string> = {
