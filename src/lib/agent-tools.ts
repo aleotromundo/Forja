@@ -2,12 +2,8 @@
 import { WORK_STYLE } from "./work-style";
 
 export const APPROVAL_REQUIRED = new Set([
-  "write_file",
-  "make_dir",
   "delete_path",
-  "move_path",
   "git_commit",
-  "run_command",
 ]);
 
 export const TOOL_ROUTES: Record<string, string> = {
@@ -46,14 +42,14 @@ export const AGENT_TOOLS = [
   fn("read_file", "Lee un archivo de texto completo del proyecto.", obj({ path: str("ruta relativa") }, ["path"])),
   fn(
     "write_file",
-    "Crea o reemplaza un archivo con su contenido completo. Requiere aprobación del usuario.",
+    "Crea o reemplaza un archivo con su contenido completo. Se ejecuta automáticamente dentro de la carpeta autorizada y queda registrado.",
     obj({ path: str("ruta relativa"), content: str("contenido completo del archivo") }, ["path", "content"]),
   ),
-  fn("make_dir", "Crea una carpeta. Requiere aprobación.", obj({ path: str("ruta relativa") }, ["path"])),
+  fn("make_dir", "Crea una carpeta dentro del proyecto autorizado.", obj({ path: str("ruta relativa") }, ["path"])),
   fn("delete_path", "Borra un archivo o carpeta. Requiere aprobación.", obj({ path: str("ruta relativa") }, ["path"])),
   fn(
     "move_path",
-    "Mueve o renombra un archivo o carpeta. Requiere aprobación.",
+    "Mueve o renombra un archivo o carpeta dentro del proyecto autorizado.",
     obj({ path: str("ruta origen"), toPath: str("ruta destino") }, ["path", "toPath"]),
   ),
   fn("search_text", "Busca un texto en todos los archivos del proyecto.", obj({ query: str("texto a buscar") }, ["query"])),
@@ -83,7 +79,7 @@ export const AGENT_TOOLS = [
   ),
   fn(
     "run_command",
-    "Ejecuta dentro del proyecto y con aprobación: pnpm run test|lint|build, pnpm exec tsc --noEmit, pnpm exec vitest run, pnpm exec prettier --check <ruta>, git status/diff --check/log; npm y bun equivalentes. No instales paquetes. Revisá código de salida y salida completa, corregí fallos y repetí los chequeos afectados antes de informar que terminaste.",
+    "Ejecuta automáticamente dentro del proyecto solo comandos permitidos de test, lint, build, TypeScript, Vitest, Prettier o Git. No instala paquetes ni ejecuta comandos arbitrarios. Revisá el código de salida y corregí los fallos.",
     obj({ command: str("comando completo, sin pipes ni encadenados") }, ["command"]),
   ),
 ];
@@ -100,7 +96,7 @@ Reglas:
 - No respondas solo anunciando que vas a abrir, leer o revisar algo: ejecutá primero la herramienta necesaria y luego informá el resultado.
 - Hacé cambios quirúrgicos: solo lo que se pidió. No reformatees ni refactorices código no relacionado.
 - No pidas al usuario que pegue archivos: leelos con read_file.
-- Las acciones que modifican el proyecto las aprueba el usuario; si una fue rechazada, no insistas: explicá y ofrecé alternativas.
+- Las escrituras, carpetas, movimientos y validaciones permitidas avanzan automáticamente dentro del proyecto autorizado. Borrar archivos y crear commits requieren aprobación; si una acción sensible fue rechazada, no insistas.
 - No hagas push ni instales paquetes.
 - Después de modificar código, revisá el diff y ejecutá los chequeos pertinentes del proyecto. Para este proyecto, preferí `pnpm run test`, `pnpm exec tsc --noEmit`, `pnpm run lint` y `pnpm run build`; en cambios pequeños elegí los chequeos más cercanos y no ejecutes build si no aporta.
 - Ejecutá `git diff --check` para detectar problemas de whitespace. Nunca ejecutes comandos encadenados ni inventes resultados: revisá el código de salida y la salida de cada comando.

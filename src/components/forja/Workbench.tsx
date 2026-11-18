@@ -510,7 +510,7 @@ export function Workbench() {
     waiter?.(ok);
   };
 
-  // Pregunta de permiso dentro del chat (tarjeta con Aprobar / Rechazar).
+  // Pregunta de permiso dentro del chat para acciones sensibles (borrar o commit).
   const askApproval = (items: string[]) => {
     if (isMobile) setMobilePanel("chat");
     const id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1012,21 +1012,12 @@ export function Workbench() {
         ]);
         return true;
       }
+      const destructiveEdits = edits.filter((edit) => edit.action === "delete");
       if (
         step === 0 &&
-        edits.length > 0 &&
+        destructiveEdits.length > 0 &&
         !(await askApproval(
-          edits.map((edit) => {
-            const label =
-              edit.action === "delete"
-                ? "Eliminar"
-                : edit.action === "mkdir"
-                  ? "Crear carpeta"
-                  : edit.action === "move"
-                    ? "Mover"
-                    : "Modificar/crear";
-            return `${label} ${edit.path}${edit.action === "move" ? ` → ${edit.toPath}` : ""}`;
-          }),
+          destructiveEdits.map((edit) => `Eliminar ${edit.path}`),
         ))
       ) {
         setLivePreview(null);

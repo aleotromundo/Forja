@@ -90,7 +90,7 @@ El preview local se renderiza dentro de un `iframe` con sandbox. Los scripts, fo
 
 ## Estado del proyecto
 
-Forja es un piloto/MVP en evolución. La base funcional está lista para probar el flujo completo, pero todavía se están mejorando la documentación, la cobertura de integración, el manejo de diffs y la robustez para proyectos grandes.
+Forja es un piloto/MVP en evolución. La base funcional está lista para probar el flujo completo, pero todavía se están mejorando la documentación, la cobertura de integración, el manejo de diffs y la robustez para proyectos grandes. Los proveedores implementados actualmente son Groq, Gemini y OpenRouter.
 
 ## Licencia
 

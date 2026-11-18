@@ -37,7 +37,7 @@ export async function readTree(root: FileSystemDirectoryHandle): Promise<FileNod
   async function walk(dir: FileSystemDirectoryHandle, base: string): Promise<FileNode[]> {
     const out: FileNode[] = [];
     for await (const h of (dir as DirHandle).values()) {
-      if (count > MAX_FILES) break;
+      if (count >= MAX_FILES) break;
       const path = base ? `${base}/${h.name}` : h.name;
       if (h.kind === "directory") {
         if (IGNORE.has(h.name)) continue;
