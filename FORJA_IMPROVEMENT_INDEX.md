@@ -44,6 +44,7 @@ La IA no debe limitarse a generar código para copiar. Debe actuar sobre el proy
 - [x] Incorporar un interruptor persistente Asistido/Desatendido para que los cambios confirmados puedan avanzar sin aprobaciones intermedias.
 - [x] Permitir que el agente descargue archivos binarios desde URLs públicas y los guarde dentro del proyecto con límites de tamaño y rutas seguras.
 - [x] Agregar un lanzador de Windows que inicia el agente y prepara la conexión de Forja sin copiar el token manualmente.
+- [ ] Publicar la app de escritorio Tauri y habilitar el botón `Escritorio` mediante `VITE_DESKTOP_INSTALLER_URL`.
 
 ### P2 — Convertirlo en un agente de desarrollo más completo
 

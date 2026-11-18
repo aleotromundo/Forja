@@ -10,7 +10,8 @@ import {
   Undo2,
   Redo2,
   Save,
-  Terminal,
+    Terminal,
+    Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -137,6 +138,7 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
 const MAX_AUTO_STEPS = 8;
 const DOWNLOAD_REQUEST =
   /(?:descarg[aá]|baj[aá]|download|guard[aá]).{0,240}https?:\/\/\S+|https?:\/\/\S+.{0,240}(?:imagen|archivo|png|jpe?g|gif|webp|svg|pdf|binario)/i;
+const DESKTOP_INSTALLER_URL = import.meta.env.VITE_DESKTOP_INSTALLER_URL as string | undefined;
 
 function scratchPath(language: string) {
   const extensions: Record<string, string> = {
@@ -651,6 +653,18 @@ export function Workbench() {
   const disconnectAgent = () => {
     clearAgentSettings();
     setAgentLinked(false);
+  };
+
+  const downloadAgentLauncher = () => {
+    const link = document.createElement("a");
+    link.href = "/start-forja-agent.bat";
+    link.download = "start-forja-agent.bat";
+    link.click();
+  };
+
+  const installDesktop = () => {
+    if (!DESKTOP_INSTALLER_URL) return;
+    window.open(DESKTOP_INSTALLER_URL, "_blank", "noopener,noreferrer");
   };
 
   useEffect(() => {
@@ -1423,6 +1437,36 @@ export function Workbench() {
         >
           <Terminal className="h-3.5 w-3.5" />
           <span className="ml-1 hidden xl:inline">{agentLinked ? "Agente: on" : "Agente"}</span>
+        </button>
+        {!agentLinked && (
+          <button
+            type="button"
+            onClick={downloadAgentLauncher}
+            title="Descargar lanzador del agente: inicia la conexión automáticamente"
+            className="shrink-0 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground sm:px-2"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="ml-1 hidden xl:inline">Lanzador</span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={installDesktop}
+          disabled={!DESKTOP_INSTALLER_URL}
+          title={
+            DESKTOP_INSTALLER_URL
+              ? "Descargar Forja para escritorio"
+              : "El instalador de escritorio estará disponible próximamente"
+          }
+          className={cn(
+            "shrink-0 rounded px-1.5 py-0.5 sm:px-2",
+            DESKTOP_INSTALLER_URL
+              ? "text-ember hover:bg-accent"
+              : "cursor-not-allowed text-muted-foreground/50",
+          )}
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="ml-1 hidden xl:inline">Escritorio</span>
         </button>
         <span className="hidden w-24 lg:inline-block" />
       </div>
