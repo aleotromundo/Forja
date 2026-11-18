@@ -19,7 +19,7 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se agregó `agent/start-forja-agent.bat` y su script PowerShell: inicia el agente, genera el token y abre Forja con un enlace de emparejamiento de un solo uso en el fragmento privado de la URL.
 - Se agregó el esqueleto inicial de Tauri en `src-tauri/`. Rust y Visual Studio Build Tools con MSVC/Windows SDK quedaron instalados; `cargo check` pasó correctamente.
 - Se agregó `scripts/setup-desktop.ps1` y `DESKTOP.md` con requisitos, diagnóstico y comandos reproducibles para preparar y construir la app Tauri.
-- Se generaron correctamente los instaladores Windows MSI y NSIS. La interfaz Tauri inicial redirige a `https://forja.app/` mientras se migra el agente HTTP a IPC nativo. Los binarios quedan fuera de Git y pendientes de publicarse en una release.
+- Se generaron correctamente los instaladores Windows MSI y NSIS. La interfaz Tauri inicial abre `https://forjah.vercel.app/` mientras se migra el agente HTTP a IPC nativo. Los binarios quedan fuera de Git y pendientes de publicarse en una release.
 
 ## 2026-10-22
 

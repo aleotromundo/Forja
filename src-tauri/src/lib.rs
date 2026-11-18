@@ -3,7 +3,7 @@ use tauri_plugin_opener::OpenerExt;
 #[tauri::command]
 fn open_forja(app: tauri::AppHandle) -> Result<(), String> {
     app.opener()
-        .open_url("https://forja.app/", None::<&str>)
+        .open_url("https://forjah.vercel.app/", None::<&str>)
         .map_err(|error| error.to_string())
 }
 

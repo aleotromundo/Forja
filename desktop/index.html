@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="refresh" content="0;url=https://forja.app/" />
+    <meta http-equiv="refresh" content="0;url=https://forjah.vercel.app/" />
     <title>Forja</title>
     <style>
       :root { color-scheme: dark; font-family: system-ui, sans-serif; }
@@ -15,13 +15,13 @@
   <body>
     <main>
       <p>Abriendo Forja…</p>
-      <p><a href="https://forja.app/">Continuar en Forja</a></p>
+      <p><a href="https://forjah.vercel.app/">Continuar en Forja</a></p>
     </main>
     <script>
       if (window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke("open_forja").catch(console.error);
       } else {
-        window.location.replace("https://forja.app/");
+        window.location.replace("https://forjah.vercel.app/");
       }
     </script>
   </body>
