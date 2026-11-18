@@ -42,6 +42,7 @@ La IA no debe limitarse a generar código para copiar. Debe actuar sobre el proy
 - [ ] Revisar consistencia entre `README.md`, `AGENTS.md`, `FORJA_HISTORY.md`, esta guía y el comportamiento real.
 - [ ] Diseñar tareas en segundo plano con agentes especializados: cola, estado, progreso, resultados, cancelación y aprobación antes de aplicar cambios.
 - [x] Incorporar un interruptor persistente Asistido/Desatendido para que los cambios confirmados puedan avanzar sin aprobaciones intermedias.
+- [x] Permitir que el agente descargue archivos binarios desde URLs públicas y los guarde dentro del proyecto con límites de tamaño y rutas seguras.
 
 ### P2 — Convertirlo en un agente de desarrollo más completo
 

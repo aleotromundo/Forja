@@ -14,6 +14,8 @@ Esta bitácora registra los cambios, verificaciones y decisiones relevantes real
 - Se creó `FORJA_IMPROVEMENT_INDEX.md` como índice operativo único para prioridades, reglas, protocolo de continuidad y registro de sesiones, pensado para retomar el trabajo aunque cambie la IA.
 - Se agregó el primer modo persistente `Asistido/Desatendido` en el chat. En modo desatendido, el agente y las ediciones confirmadas no esperan aprobaciones intermedias; Planear continúa sin modificar archivos.
 - Validación: 60 tests pasaron, TypeScript pasó y el build pasó. Lint todavía reporta 419 diferencias de formato heredadas que se tratarán por separado.
+- Se agregó la herramienta `download_file` al agente local para descargar archivos binarios desde URLs públicas HTTP/HTTPS dentro de la carpeta autorizada, con límite de 20 MB y bloqueo de destinos locales o privados.
+- `pnpm run test:agent`: 4 tests pasaron, incluyendo la validación de URLs públicas y destinos bloqueados.
 
 ## 2026-10-22
 
