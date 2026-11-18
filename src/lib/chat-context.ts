@@ -26,7 +26,7 @@ export function findMentionedProjectFiles(text: string, projectFiles: string[]) 
 }
 
 export function asksUserForProjectFile(text: string) {
-  return /\b(?:abrir|abrí|abre|abr[aá]|mostrar|mostrá|muestra|compartir|compartí|compartime|comparta|pegar|pegá|pegame|pasame|mandame|facilitame|open|show|share|paste|send|provide)\b.{0,120}\b(?:archivo|file|contenido|content|c[oó]digo|code|proyecto|project)\b|\b(?:archivo|file|contenido|content|c[oó]digo|code)\b.{0,120}\b(?:peg[aá]|compart[ií]|pas[aá]me|mand[aá]me|show|share|paste|send)\b/i.test(
+  return /(?:^|[^\p{L}])(?:abrir|abrí|abre|abr[aá]|mostrar|mostrá|muestra|compartir|compartí|compartime|comparta|pegar|pegá|pegame|pasame|mandame|facilitame|open|show|share|paste|send|provide)(?!\p{L}).{0,120}(?:archivo|file|contenido|content|c[oó]digo|code|proyecto|project)(?!\p{L})|(?:^|[^\p{L}])(?:archivo|file|contenido|content|c[oó]digo|code)(?!\p{L}).{0,120}(?:peg[aá]|compart[ií]|pas[aá]me|mand[aá]me|show|share|paste|send)(?!\p{L})/iu.test(
     text,
   );
 }

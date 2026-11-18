@@ -2,8 +2,12 @@
 import { WORK_STYLE } from "./work-style";
 
 export const APPROVAL_REQUIRED = new Set([
+  "write_file",
+  "make_dir",
   "delete_path",
+  "move_path",
   "git_commit",
+  "run_command",
 ]);
 
 export const TOOL_ROUTES: Record<string, string> = {
@@ -38,24 +42,51 @@ const obj = (properties: Record<string, unknown>, required: string[] = []) => ({
 const str = (description: string) => ({ type: "string", description });
 
 export const AGENT_TOOLS = [
-  fn("list_files", "Lista los archivos del proyecto con tamaño y fecha. Usalo para orientarte.", obj({})),
-  fn("read_file", "Lee un archivo de texto completo del proyecto.", obj({ path: str("ruta relativa") }, ["path"])),
+  fn(
+    "list_files",
+    "Lista los archivos del proyecto con tamaño y fecha. Usalo para orientarte.",
+    obj({}),
+  ),
+  fn(
+    "read_file",
+    "Lee un archivo de texto completo del proyecto.",
+    obj({ path: str("ruta relativa") }, ["path"]),
+  ),
   fn(
     "write_file",
-    "Crea o reemplaza un archivo con su contenido completo. Se ejecuta automáticamente dentro de la carpeta autorizada y queda registrado.",
-    obj({ path: str("ruta relativa"), content: str("contenido completo del archivo") }, ["path", "content"]),
+    "Crea o reemplaza un archivo con su contenido completo. Requiere aprobación del usuario.",
+    obj({ path: str("ruta relativa"), content: str("contenido completo del archivo") }, [
+      "path",
+      "content",
+    ]),
   ),
-  fn("make_dir", "Crea una carpeta dentro del proyecto autorizado.", obj({ path: str("ruta relativa") }, ["path"])),
-  fn("delete_path", "Borra un archivo o carpeta. Requiere aprobación.", obj({ path: str("ruta relativa") }, ["path"])),
+  fn(
+    "make_dir",
+    "Crea una carpeta. Requiere aprobación.",
+    obj({ path: str("ruta relativa") }, ["path"]),
+  ),
+  fn(
+    "delete_path",
+    "Borra un archivo o carpeta. Requiere aprobación.",
+    obj({ path: str("ruta relativa") }, ["path"]),
+  ),
   fn(
     "move_path",
-    "Mueve o renombra un archivo o carpeta dentro del proyecto autorizado.",
+    "Mueve o renombra un archivo o carpeta. Requiere aprobación.",
     obj({ path: str("ruta origen"), toPath: str("ruta destino") }, ["path", "toPath"]),
   ),
-  fn("search_text", "Busca un texto en todos los archivos del proyecto.", obj({ query: str("texto a buscar") }, ["query"])),
+  fn(
+    "search_text",
+    "Busca un texto en todos los archivos del proyecto.",
+    obj({ query: str("texto a buscar") }, ["query"]),
+  ),
   fn("git_status", "Muestra el estado de git.", obj({})),
   fn("git_log", "Muestra los últimos commits.", obj({})),
-  fn("git_diff", "Muestra los cambios sin commitear, opcionalmente de un archivo.", obj({ path: str("ruta opcional") })),
+  fn(
+    "git_diff",
+    "Muestra los cambios sin commitear, opcionalmente de un archivo.",
+    obj({ path: str("ruta opcional") }),
+  ),
   fn(
     "git_commit",
     "Agrega todos los cambios y hace commit local (no sube nada). Requiere aprobación.",
@@ -79,7 +110,7 @@ export const AGENT_TOOLS = [
   ),
   fn(
     "run_command",
-    "Ejecuta automáticamente dentro del proyecto solo comandos permitidos de test, lint, build, TypeScript, Vitest, Prettier o Git. No instala paquetes ni ejecuta comandos arbitrarios. Revisá el código de salida y corregí los fallos.",
+    "Ejecuta dentro del proyecto y con aprobación: pnpm run test|lint|build, pnpm exec tsc --noEmit, pnpm exec vitest run, pnpm exec prettier --check <ruta>, git status/diff --check/log; npm y bun equivalentes. No instales paquetes. Revisá código de salida y salida completa, corregí fallos y repetí las validaciones afectadas si algo falla.",
     obj({ command: str("comando completo, sin pipes ni encadenados") }, ["command"]),
   ),
 ];
@@ -92,14 +123,14 @@ export const AGENT_SYSTEM = `Sos Forja, un asistente de programación que trabaj
 Trabajá en pasos: primero mirá lo necesario (list_files, read_file, search_text), después cambiá lo mínimo con write_file y verificá (git_diff, git diff --check y run_command con los tests y chequeos pertinentes).
 Reglas:
 - Leé un archivo antes de modificarlo. Escribí siempre el contenido completo.
-- Si el usuario menciona una ruta o archivo del proyecto, usá `read_file` para leerlo antes de contestar; si Forja ya adjuntó su contenido local en el contexto, analizá ese contenido directamente. Nunca le pidas que abra, copie, comparta o pegue un archivo que ya existe en el proyecto.
+- Si el usuario menciona una ruta o archivo del proyecto, usá 'read_file' para leerlo antes de contestar; si Forja ya adjuntó su contenido local en el contexto, analizá ese contenido directamente. Nunca le pidas que abra, copie, comparta o pegue un archivo que ya existe en el proyecto.
 - No respondas solo anunciando que vas a abrir, leer o revisar algo: ejecutá primero la herramienta necesaria y luego informá el resultado.
 - Hacé cambios quirúrgicos: solo lo que se pidió. No reformatees ni refactorices código no relacionado.
 - No pidas al usuario que pegue archivos: leelos con read_file.
-- Las escrituras, carpetas, movimientos y validaciones permitidas avanzan automáticamente dentro del proyecto autorizado. Borrar archivos y crear commits requieren aprobación; si una acción sensible fue rechazada, no insistas.
+- Las acciones que modifican el proyecto las aprueba el usuario; si una fue rechazada, no insistas: explicá y ofrecé alternativas.
 - No hagas push ni instales paquetes.
-- Después de modificar código, revisá el diff y ejecutá los chequeos pertinentes del proyecto. Para este proyecto, preferí `pnpm run test`, `pnpm exec tsc --noEmit`, `pnpm run lint` y `pnpm run build`; en cambios pequeños elegí los chequeos más cercanos y no ejecutes build si no aporta.
-- Ejecutá `git diff --check` para detectar problemas de whitespace. Nunca ejecutes comandos encadenados ni inventes resultados: revisá el código de salida y la salida de cada comando.
+- Después de modificar código, revisá el diff y ejecutá los chequeos pertinentes del proyecto. Para este proyecto, preferí 'pnpm run test', 'pnpm exec tsc --noEmit', 'pnpm run lint' y 'pnpm run build'; en cambios pequeños elegí los chequeos más cercanos y no ejecutes build si no aporta.
+- Ejecutá 'git diff --check' para detectar problemas de whitespace. Nunca ejecutes comandos encadenados ni inventes resultados: revisá el código de salida y la salida de cada comando.
 - Si un chequeo falla, investigá la causa, corregí solo lo relacionado y volvé a ejecutar el chequeo afectado. No afirmes que terminaste si queda un fallo o una validación pendiente; indicá claramente qué se completó, qué falló y qué no se pudo ejecutar.
 - Si el trabajo no cabe en el límite del agente, resumí lo que ya se hizo y nombrá el siguiente paso concreto; no lo presentes como completo.
 - Para decisiones de diseño o riesgos, consultá a un especialista con consult_specialist antes de editar.

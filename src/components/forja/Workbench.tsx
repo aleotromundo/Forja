@@ -90,6 +90,7 @@ import {
 } from "@/lib/chat-persistence";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { firstCodeBlock } from "@/lib/ai-stream";
+import { loadAutonomyMode, saveAutonomyMode, type AutonomyMode } from "@/lib/agent-policy";
 
 type Snapshot = {
   path: string;
@@ -187,9 +188,7 @@ async function askForjaStreaming(
   const consumeLine = (line: string) => {
     if (!line.startsWith("data:")) return;
     const event = JSON.parse(line.slice(5).trim()) as
-      | AiProgress
-      | { type: "result"; result: AiResult }
-      | { type: "error"; message: string };
+      AiProgress | { type: "result"; result: AiResult } | { type: "error"; message: string };
     if (event.type === "result") result = event.result;
     else if (event.type === "error") throw new Error(event.message);
     else onProgress(event);
@@ -241,6 +240,9 @@ export function Workbench() {
   const [requestPhase, setRequestPhase] = useState<
     "idle" | "preparing" | "consulting" | "applying"
   >("idle");
+  const [autonomy, setAutonomy] = useState<AutonomyMode>(() =>
+    loadAutonomyMode(typeof window === "undefined" ? undefined : window.localStorage),
+  );
   const isMobile = useIsMobile();
   const [mobilePanel, setMobilePanel] = useState<"editor" | "explorer" | "chat">("editor");
   const [showExplorer, setShowExplorer] = useState(true);
@@ -593,9 +595,7 @@ export function Workbench() {
       setTabs((current) =>
         current.some((tab) => tab.path === path)
           ? current.map((tab) =>
-              tab.path === path
-                ? { ...tab, content: draft.content, saved: draft.content }
-                : tab,
+              tab.path === path ? { ...tab, content: draft.content, saved: draft.content } : tab,
             )
           : [...current, { path, content: draft.content, saved: draft.content }],
       );
@@ -620,7 +620,10 @@ export function Workbench() {
   };
 
   const say = (content: string) =>
-    setMessages((ms) => [...ms, { role: "assistant", content, provider: "forja", team: [], error: false }]);
+    setMessages((ms) => [
+      ...ms,
+      { role: "assistant", content, provider: "forja", team: [], error: false },
+    ]);
 
   const connectAgent = async () => {
     const token = window.prompt(
@@ -665,7 +668,12 @@ export function Workbench() {
               provider: step.provider,
               model: step.model,
             }
-          : { type: "final" as const, reply: step.reply, provider: step.provider, model: step.model };
+          : {
+              type: "final" as const,
+              reply: step.reply,
+              provider: step.provider,
+              model: step.model,
+            };
       },
       runTool: async (name, args) => {
         if (name === "open_file") {
@@ -693,7 +701,9 @@ export function Workbench() {
         return agentCall(route, args);
       },
       approve: (calls: ToolCall[]) =>
-        askApproval(calls.map((c) => `${c.name} ${JSON.stringify(c.args).slice(0, 160)}`)),
+        autonomy === "unattended"
+          ? Promise.resolve(true)
+          : askApproval(calls.map((c) => `${c.name} ${JSON.stringify(c.args).slice(0, 160)}`)),
       drain: () => steerRef.current.splice(0),
       onSteer: (text) => setMessages((m) => [...m, { role: "user", content: text }]),
       shouldStop: () => stopRef.current,
@@ -733,7 +743,9 @@ export function Workbench() {
         }No está confirmado como terminado. ${result.reply}`
       : result.stopped
         ? `Trabajo detenido por pedido del usuario.${
-            actionSummary ? ` Cambios ya realizados: ${actionSummary}.` : " No se aplicaron cambios."
+            actionSummary
+              ? ` Cambios ya realizados: ${actionSummary}.`
+              : " No se aplicaron cambios."
           }`
         : result.reply;
     setMessages((m) => [
@@ -829,7 +841,10 @@ export function Workbench() {
               messages: [
                 {
                   role: "user",
-                  content: summaryRequest(summary?.text, recentContext(chunkToSummarize(history, summary))),
+                  content: summaryRequest(
+                    summary?.text,
+                    recentContext(chunkToSummarize(history, summary)),
+                  ),
                 },
               ],
               system: SUMMARY_SYSTEM,
@@ -885,9 +900,7 @@ export function Workbench() {
           }
           return;
         }
-        const previous = progress.reset
-          ? ""
-          : (streamedEditsRef.current.get(progress.path) ?? "");
+        const previous = progress.reset ? "" : (streamedEditsRef.current.get(progress.path) ?? "");
         const content = progress.reset ? progress.content : previous + progress.content;
         streamedEditsRef.current.set(progress.path, content);
         setLivePreview({ path: progress.path, content });
@@ -958,7 +971,12 @@ export function Workbench() {
         setTransientKind(null);
         setMessages((m) => [
           ...m,
-          { role: "assistant", content: "Detenido. No apliqué la respuesta de la IA.", provider: res.provider, team: [] },
+          {
+            role: "assistant",
+            content: "Detenido. No apliqué la respuesta de la IA.",
+            provider: res.provider,
+            team: [],
+          },
         ]);
         return true;
       }
@@ -976,9 +994,7 @@ export function Workbench() {
         setTransientKind(codeBlock ? "scratch" : null);
         if (!codeBlock) {
           const lowerReply = res.reply.toLowerCase();
-          const discussedFile = files.find((path) =>
-            lowerReply.includes(path.toLowerCase()),
-          );
+          const discussedFile = files.find((path) => lowerReply.includes(path.toLowerCase()));
           if (discussedFile) {
             await openFile(discussedFile);
             setView("code");
@@ -1012,12 +1028,22 @@ export function Workbench() {
         ]);
         return true;
       }
-      const destructiveEdits = edits.filter((edit) => edit.action === "delete");
       if (
+        autonomy === "assisted" &&
         step === 0 &&
-        destructiveEdits.length > 0 &&
+        edits.length > 0 &&
         !(await askApproval(
-          destructiveEdits.map((edit) => `Eliminar ${edit.path}`),
+          edits.map((edit) => {
+            const label =
+              edit.action === "delete"
+                ? "Eliminar"
+                : edit.action === "mkdir"
+                  ? "Crear carpeta"
+                  : edit.action === "move"
+                    ? "Mover"
+                    : "Modificar/crear";
+            return `${label} ${edit.path}${edit.action === "move" ? ` → ${edit.toPath}` : ""}`;
+          }),
         ))
       ) {
         setLivePreview(null);
@@ -1599,11 +1625,9 @@ export function Workbench() {
                     ts.map((t) => (t.path === p ? { ...t, showDiff: !t.showDiff } : t)),
                   )
                 }
-                onApplyTransient={
-                  !busy && !applyingScratch && approvalWaiters.current.size === 0
-                    ? applyScratch
-                    : undefined
-                }
+                {...(!busy && !applyingScratch && approvalWaiters.current.size === 0
+                  ? { onApplyTransient: applyScratch }
+                  : {})}
                 onCloseTransient={() => setTransientKind(null)}
               />
             </div>
@@ -1646,6 +1670,11 @@ export function Workbench() {
                 activeSessionId={activeSessionId}
                 onNewChat={newChat}
                 onSelectChat={selectChat}
+                autonomy={autonomy}
+                onAutonomyChange={(next) => {
+                  setAutonomy(next);
+                  saveAutonomyMode(window.localStorage, next);
+                }}
               />
             </div>
           </>

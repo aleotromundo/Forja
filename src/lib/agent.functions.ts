@@ -31,8 +31,7 @@ export interface AgentStepWire {
 }
 
 type SlotOutcome =
-  | { kind: "ok"; step: AgentStepWire }
-  | { kind: "fail"; error: string; transient: boolean };
+  { kind: "ok"; step: AgentStepWire } | { kind: "fail"; error: string; transient: boolean };
 
 async function callSlot(
   slot: ProviderSlot,
@@ -123,7 +122,7 @@ async function callSlot(
 
 /** Un paso del agente: el modelo pide herramientas o responde con texto final. */
 export const askAgent = createServerFn({ method: "POST" })
-  .inputValidator(AgentInput)
+  .validator(AgentInput)
   .handler(async ({ data }): Promise<AgentStepWire> => {
     const slots = prioritizeSlots(enabledSlots(process.env as Record<string, string | undefined>));
     if (!slots.length) throw new Error("No hay claves de IA configuradas en Vercel.");

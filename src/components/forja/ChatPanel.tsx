@@ -23,6 +23,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { isTextFile } from "@/lib/fs";
 import type { ChatAttachment, ChatExtras } from "@/lib/chat-context";
 import { useDictation } from "./useDictation";
+import type { AutonomyMode } from "@/lib/agent-policy";
 import type { ChatMode } from "@/lib/agents";
 import type { ChatSession } from "@/lib/chat-persistence";
 
@@ -151,6 +152,8 @@ interface Props {
   activeSessionId: string | null;
   onNewChat: () => void;
   onSelectChat: (id: string) => void;
+  autonomy: AutonomyMode;
+  onAutonomyChange: (mode: AutonomyMode) => void;
 }
 
 function relativeDate(value: string) {
@@ -196,6 +199,8 @@ export function ChatPanel({
   activeSessionId,
   onNewChat,
   onSelectChat,
+  autonomy,
+  onAutonomyChange,
 }: Props) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -309,9 +314,15 @@ export function ChatPanel({
       setAttachments([]);
       setProjectPaths([]);
       if (sentMode === "plan" && APPLY_INTENT.test(t)) {
-        setPendingEdit({ text: APPLY_TEXT, label: "Para empezar a hacer los cambios, cambiá a Modificar." });
+        setPendingEdit({
+          text: APPLY_TEXT,
+          label: "Para empezar a hacer los cambios, cambiá a Modificar.",
+        });
       } else if (sentMode === "plan" && EDIT_INTENT.test(t)) {
-        setPendingEdit({ text: t, label: "Esto parece un pedido de cambios en el proyecto. ¿Lo hacemos?" });
+        setPendingEdit({
+          text: t,
+          label: "Esto parece un pedido de cambios en el proyecto. ¿Lo hacemos?",
+        });
       } else {
         setPendingEdit(null);
       }
@@ -402,6 +413,24 @@ export function ChatPanel({
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          aria-pressed={autonomy === "unattended"}
+          title={
+            autonomy === "unattended"
+              ? "Modo desatendido activo: Forja avanza sin pedir confirmaciones"
+              : "Modo asistido: Forja pide confirmación antes de aplicar acciones"
+          }
+          onClick={() => onAutonomyChange(autonomy === "unattended" ? "assisted" : "unattended")}
+          className={cn(
+            "shrink-0 rounded px-2 py-0.5 text-[11px] normal-case tracking-normal",
+            autonomy === "unattended"
+              ? "bg-amber-500 text-black"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {autonomy === "unattended" ? "Desatendido" : "Asistido"}
+        </button>
       </div>
       <div className="flex min-w-0 items-center gap-1 border-b px-2 py-1">
         <Popover>

@@ -183,7 +183,11 @@ export function EditorPane({
       {transient ? (
         <>
           <div className="flex h-7 shrink-0 items-center justify-between px-4 font-mono text-xs text-muted-foreground">
-            <span>{transient.kind === "live" ? "Vista previa en vivo · no guardada" : "Borrador temporal · no guardado"}</span>
+            <span>
+              {transient.kind === "live"
+                ? "Vista previa en vivo · no guardada"
+                : "Borrador temporal · no guardado"}
+            </span>
             <span>{transient.path}</span>
           </div>
           <div className="min-h-0 flex-1">
@@ -201,11 +205,9 @@ export function EditorPane({
                 ...OPTIONS,
                 readOnly: transient.kind === "live" || transient.editable !== true,
               }}
-              onChange={
-                transient.kind === "scratch" && transient.editable
-                  ? (value) => transient.onChange?.(value ?? "")
-                  : undefined
-              }
+              {...(transient.kind === "scratch" && transient.editable
+                ? { onChange: (value: string | undefined) => transient.onChange?.(value ?? "") }
+                : {})}
               onMount={(editor) => {
                 editorRef.current = editor;
               }}

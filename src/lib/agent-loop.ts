@@ -45,7 +45,7 @@ export interface AgentLoopResult {
 
 const MAX_TOOL_CHARS = 12_000;
 const PENDING_ACTION =
-  /\b(?:(?:voy a|ahora voy a|primero voy a|déjame|dejame|permíteme|permitime|i(?:'ll| will)|let me|i am going to)\s+(?:abrir|leer|revisar|inspeccionar|buscar|consultar|ver|mirar|analizar|open|read|review|inspect|search|check|look at|analyze)|(?:abrí|abre|abr[aá]|leé|lee|revisá|revisa|inspeccioná|inspecciona|buscá|busca|consultá|consulta|mirá|mira|analizá|analiza|open|read|review|inspect)\b.{0,120}\b(?:archivo|file|contenido|content|c[oó]digo|code|proyecto|project)\b)/i;
+  /\b(?:(?:voy a|ahora voy a|primero voy a|déjame|dejame|permíteme|permitime|i(?:'ll| will)|let me|i am going to)\s+(?:abrir|leer|revisar|inspeccionar|buscar|consultar|ver|mirar|analizar|open|read|review|inspect|search|check|look at|analyze)|(?:abrí|abre|abr[aá]|leé|lee|revisá|revisa|inspeccioná|inspecciona|buscá|busca|consultá|consulta|mirá|mira|analizá|analiza|open|read|review|inspect)(?!\p{L}).{0,120}\b(?:archivo|file|contenido|content|c[oó]digo|code|proyecto|project)\b)/iu;
 const PENDING_ACTION_FALLBACK =
   "No pude completar la revisión: el modelo anunció que iba a inspeccionar el proyecto, pero no ejecutó la lectura. Intentá de nuevo; no hace falta que abras ni pegues archivos.";
 
@@ -115,7 +115,8 @@ export async function runAgentLoop(
           const kind = FILE_ACTIONS[call.name];
           if (kind && !(result && typeof result === "object" && "error" in result)) {
             const path = String(call.args["path"] ?? "");
-            const toPath = typeof call.args["toPath"] === "string" ? call.args["toPath"] : undefined;
+            const toPath =
+              typeof call.args["toPath"] === "string" ? call.args["toPath"] : undefined;
             actions.push({ path, action: kind, ...(toPath ? { toPath } : {}) });
           }
         } catch (error) {
