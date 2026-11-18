@@ -694,6 +694,7 @@ export function Workbench() {
       : null;
     const token = hash?.get("agentToken");
     if (!token) return;
+    const projectName = hash?.get("projectName");
     saveAgentSettings({ url: AGENT_URL, token });
     window.history.replaceState(
       {},
@@ -701,7 +702,15 @@ export function Workbench() {
       `${window.location.pathname}${window.location.search}`,
     );
     void agentCall("/health", {})
-      .then(() => setAgentLinked(true))
+      .then(async () => {
+        setAgentLinked(true);
+        if (!projectName) return;
+        const recentProject = (await listRecent()).find((item) => item.name === projectName);
+        if (recentProject && (await ensureAccess(recentProject.handle))) {
+          await openHandle(recentProject.handle);
+          toast.success(`Proyecto reutilizado: ${projectName}`);
+        }
+      })
       .catch(() => {
         clearAgentSettings();
         say("No pude conectar automáticamente el agente local. Ejecutá el lanzador nuevamente.");

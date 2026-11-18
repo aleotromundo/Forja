@@ -20,6 +20,7 @@ fn start_forja(app: tauri::AppHandle, state: tauri::State<'_, AgentProcess>) -> 
         .pick_folder()
         .ok_or_else(|| "No se eligió ninguna carpeta.".to_string())?;
     let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+    let project_name = root.file_name().and_then(|name| name.to_str()).unwrap_or_default();
     let script = agent_script(&app)?;
     let node = if cfg!(windows) { "node.exe" } else { "node" };
     let mut child = Command::new(node)
@@ -33,7 +34,13 @@ fn start_forja(app: tauri::AppHandle, state: tauri::State<'_, AgentProcess>) -> 
     wait_for_agent(&mut child)?;
     *state.0.lock().map_err(|_| "No se pudo guardar el agente local.".to_string())? = Some(child);
     app.opener()
-        .open_url(format!("{FORJA_URL}#agentToken={token}"), None::<&str>)
+        .open_url(
+            format!(
+                "{FORJA_URL}#agentToken={token}&projectName={}",
+                urlencoding::encode(project_name)
+            ),
+            None::<&str>,
+        )
         .map_err(|error| error.to_string())?;
     Ok(root.display().to_string())
 }

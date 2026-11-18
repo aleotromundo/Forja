@@ -16,6 +16,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 rfd = "0.15"
+urlencoding = "2"
 uuid = { version = "1", features = ["v4"] }
 
 [features]
