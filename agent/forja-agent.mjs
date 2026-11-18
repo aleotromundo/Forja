@@ -168,7 +168,7 @@ function looksText(buffer) {
   return !buffer.subarray(0, 1000).includes(0);
 }
 
-function safeDownloadUrl(raw) {
+export function safeDownloadUrl(raw) {
   if (typeof raw !== "string" || raw.length > 2000) throw new Error("URL inválida.");
   let url;
   try {

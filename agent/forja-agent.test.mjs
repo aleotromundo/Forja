@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createAgent, parseCommand, resolveInside } from "./forja-agent.mjs";
+import { createAgent, parseCommand, resolveInside, safeDownloadUrl } from "./forja-agent.mjs";
 
 const root = path.resolve("/tmp/forja-test-root");
 
@@ -52,6 +52,13 @@ test("parseCommand allows only read and project commands", () => {
   assert.throws(() => parseCommand("git status; rm -rf /"), /no permitidos/);
   assert.throws(() => parseCommand("npm run build && curl x"), /no permitidos/);
   assert.throws(() => parseCommand("git status $(whoami)"), /no permitidos/);
+});
+
+test("download URLs allow public HTTP(S) and reject local targets", () => {
+  assert.equal(safeDownloadUrl("https://example.com/image.png").protocol, "https:");
+  assert.throws(() => safeDownloadUrl("file:///C:/secret.txt"), /HTTP o HTTPS/);
+  assert.throws(() => safeDownloadUrl("http://127.0.0.1:8080/image.png"), /locales o privados/);
+  assert.throws(() => safeDownloadUrl("http://169.254.169.254/latest/meta-data"), /locales o privados/);
 });
 
 test("HTTP agent requires the token and works on files", async () => {
