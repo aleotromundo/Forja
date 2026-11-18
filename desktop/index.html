@@ -18,7 +18,11 @@
       <p><a href="https://forja.app/">Continuar en Forja</a></p>
     </main>
     <script>
-      window.location.replace("https://forja.app/");
+      if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke("open_forja").catch(console.error);
+      } else {
+        window.location.replace("https://forja.app/");
+      }
     </script>
   </body>
 </html>
