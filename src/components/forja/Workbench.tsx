@@ -32,6 +32,8 @@ import {
   moveEntry,
   pickFolder,
   createAgentDirectoryHandle,
+  desktopInvoke,
+  isDesktopBridge,
   readFile,
   readTree,
   removeEntry,
@@ -948,7 +950,8 @@ export function Workbench() {
         }
         setRequestPhase("applying");
         try {
-          await agentCall(TOOL_ROUTES["download_file"]!, call.args);
+          if (isDesktopBridge()) await desktopInvoke("desktop_download", call.args);
+          else await agentCall(TOOL_ROUTES["download_file"]!, call.args);
           await refresh();
           setMessages((m) => [
             ...m,

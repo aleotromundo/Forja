@@ -1,6 +1,25 @@
 // Local folder access through the browser File System Access API.
 import { agentCall } from "./local-agent";
 
+type TauriGlobal = {
+  core?: { invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown> };
+};
+declare global {
+  interface Window {
+    __TAURI__?: TauriGlobal;
+  }
+}
+
+export function isDesktopBridge() {
+  return typeof window !== "undefined" && typeof window.__TAURI__?.core?.invoke === "function";
+}
+
+export function desktopInvoke<T>(command: string, args?: Record<string, unknown>) {
+  const invoke = window.__TAURI__?.core?.invoke;
+  if (!invoke) throw new Error("La app de escritorio no está disponible.");
+  return invoke(command, args) as Promise<T>;
+}
+
 export interface FileNode {
   name: string;
   path: string;
@@ -41,7 +60,9 @@ class AgentDirectoryHandle {
   ) {}
 
   async *values(): AsyncGenerator<AgentFileHandle | AgentDirectoryHandle> {
-    const result = (await agentCall("/fs/tree", {})) as { files?: Array<{ path: string }> };
+    const result = isDesktopBridge()
+      ? { files: await desktopInvoke<Array<{ path: string }>>("desktop_tree") }
+      : ((await agentCall("/fs/tree", {})) as { files?: Array<{ path: string }> });
     const prefix = this.base ? `${this.base}/` : "";
     const entries = new Map<string, "file" | "directory">();
     for (const file of result.files ?? []) {
@@ -59,8 +80,13 @@ class AgentDirectoryHandle {
     }
   }
 
-  async getDirectoryHandle(name: string) {
-    return new AgentDirectoryHandle(name, this.base ? `${this.base}/${name}` : name);
+  async getDirectoryHandle(name: string, options?: { create?: boolean }) {
+    const path = this.base ? `${this.base}/${name}` : name;
+    if (options?.create) {
+      if (isDesktopBridge()) await desktopInvoke("desktop_mkdir", { path });
+      else await agentCall("/fs/mkdir", { path });
+    }
+    return new AgentDirectoryHandle(name, path);
   }
 
   async getFileHandle(name: string) {
@@ -68,7 +94,9 @@ class AgentDirectoryHandle {
   }
 
   async removeEntry(name: string) {
-    await agentCall("/fs/delete", { path: this.base ? `${this.base}/${name}` : name });
+    const path = this.base ? `${this.base}/${name}` : name;
+    if (isDesktopBridge()) await desktopInvoke("desktop_delete", { path });
+    else await agentCall("/fs/delete", { path });
   }
 }
 
@@ -80,8 +108,11 @@ class AgentFileHandle {
   ) {}
 
   async getFile() {
-    const result = (await agentCall("/fs/read", { path: this.path })) as { content?: string };
-    const blob = new Blob([result.content ?? ""], { type: "text/plain" });
+    const content = isDesktopBridge()
+      ? await desktopInvoke<string>("desktop_read", { path: this.path })
+      : (((await agentCall("/fs/read", { path: this.path })) as { content?: string }).content ??
+        "");
+    const blob = new Blob([content], { type: "text/plain" });
     return new File([blob], this.name, { type: "text/plain" });
   }
 
@@ -92,7 +123,8 @@ class AgentFileHandle {
         content = typeof value === "string" ? value : new TextDecoder().decode(value);
       },
       close: async () => {
-        await agentCall("/fs/write", { path: this.path, content });
+        if (isDesktopBridge()) await desktopInvoke("desktop_write", { path: this.path, content });
+        else await agentCall("/fs/write", { path: this.path, content });
       },
     };
   }
