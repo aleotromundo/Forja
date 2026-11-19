@@ -535,6 +535,9 @@ export function ChatPanel({
                         Descargar
                       </button>
                     </figcaption>
+                    <p className="truncate text-[9px] text-muted-foreground" title={img.license}>
+                      {[img.source, img.creator, img.license].filter(Boolean).join(" · ")}
+                    </p>
                   </figure>
                 ))}
               </div>

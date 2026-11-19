@@ -728,7 +728,8 @@ export function Workbench() {
       setMessages([...history, { role: "assistant", content, provider: "forja", team: [] }]);
       return;
     }
-    let content = `Encontré ${images.length} ${images.length === 1 ? "imagen" : "imágenes"} (${images[0]!.source}) para: ${plan.queries.join(", ")}.`;
+    const sources = [...new Set(images.map((i) => i.source))].join(", ");
+    let content = `Encontré ${images.length} ${images.length === 1 ? "imagen" : "imágenes"} (${sources}) para: ${plan.queries.join(", ")}.`;
     if (path) {
       try {
         content += ` ${await saveImageToProject(images[0]!, path)}`;

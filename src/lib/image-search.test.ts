@@ -124,3 +124,135 @@ describe("fileNameFor", () => {
     expect(fileNameFor({ title: "perro", thumb: "", full: "", source: "" })).toBe("perro.jpg");
   });
 });
+
+import {
+  interleaveImages,
+  parseFlickrResponse,
+  parseOpenverseResponse,
+  parsePexelsResponse,
+  parsePixabayResponse,
+  parseUnsplashResponse,
+} from "./image-search";
+
+describe("fuentes adicionales", () => {
+  it("Openverse guarda autor y licencia", () => {
+    const out = parseOpenverseResponse({
+      results: [
+        {
+          title: "Perro",
+          url: "https://img.example/perro.jpg",
+          thumbnail: "https://img.example/perro-t.jpg",
+          creator: "Ana",
+          license: "by",
+          license_version: "2.0",
+          foreign_landing_url: "https://site.example/p",
+        },
+      ],
+    });
+    expect(out[0]).toMatchObject({
+      source: "Openverse",
+      creator: "Ana",
+      license: "BY 2.0",
+      thumb: "https://img.example/perro-t.jpg",
+      full: "https://img.example/perro.jpg",
+    });
+  });
+
+  it("Pexels usa la versión mediana para mostrar y la original para bajar", () => {
+    const out = parsePexelsResponse({
+      photos: [
+        {
+          alt: "Gato",
+          src: { medium: "https://px/m.jpg", original: "https://px/o.jpg" },
+          photographer: "Luis",
+          url: "https://pexels.com/x",
+        },
+      ],
+    });
+    expect(out[0]).toMatchObject({
+      source: "Pexels",
+      thumb: "https://px/m.jpg",
+      full: "https://px/o.jpg",
+      creator: "Luis",
+    });
+  });
+
+  it("Pixabay usa la versión web y la grande", () => {
+    const out = parsePixabayResponse({
+      hits: [
+        {
+          tags: "dog, pet",
+          webformatURL: "https://pb/w.jpg",
+          largeImageURL: "https://pb/l.jpg",
+          user: "Sam",
+          pageURL: "https://pb/p",
+        },
+      ],
+    });
+    expect(out[0]).toMatchObject({
+      source: "Pixabay",
+      thumb: "https://pb/w.jpg",
+      full: "https://pb/l.jpg",
+      creator: "Sam",
+    });
+  });
+
+  it("Unsplash toma las URLs de urls y el autor de user", () => {
+    const out = parseUnsplashResponse({
+      results: [
+        {
+          alt_description: "Mar",
+          urls: {
+            small: "https://us/s.jpg",
+            regular: "https://us/r.jpg",
+            full: "https://us/f.jpg",
+          },
+          user: { name: "Eva" },
+          links: { html: "https://unsplash.com/p" },
+        },
+      ],
+    });
+    expect(out[0]).toMatchObject({
+      source: "Unsplash",
+      thumb: "https://us/s.jpg",
+      full: "https://us/f.jpg",
+      creator: "Eva",
+    });
+  });
+
+  it("Flickr arma la página de la foto y descarta las sin URL", () => {
+    const out = parseFlickrResponse({
+      photos: {
+        photo: [
+          {
+            id: "1",
+            owner: "99@N00",
+            ownername: "Pat",
+            title: "Río",
+            url_m: "https://fl/m.jpg",
+            url_o: "https://fl/o.jpg",
+          },
+          { id: "2", owner: "x", title: "sin url" },
+        ],
+      },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      source: "Flickr",
+      creator: "Pat",
+      pageUrl: "https://www.flickr.com/photos/99@N00/1",
+    });
+  });
+
+  it("interleaveImages alterna fuentes sin repetir", () => {
+    const img = (n: string) => ({ title: n, thumb: n, full: n, source: "s" });
+    const merged = interleaveImages(
+      [
+        [img("a1"), img("a2")],
+        [img("b1"), img("a1")],
+      ],
+      8,
+    );
+    expect(merged.map((i) => i.full)).toEqual(["a1", "b1", "a2"]);
+  });
+});
