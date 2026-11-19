@@ -91,6 +91,8 @@ export interface QueuedMessage {
 export interface ApprovalRequest {
   id: string;
   items: string[];
+  /** Herramientas de la solicitud; permiten «aprobar siempre» en este proyecto. */
+  tools?: string[];
   status: "pending" | "approved" | "rejected";
 }
 
@@ -100,7 +102,7 @@ function ApprovalCard({
   onDecide,
 }: {
   approval: ApprovalRequest;
-  onDecide: (id: string, ok: boolean) => void;
+  onDecide: (id: string, ok: boolean, always?: boolean) => void;
 }) {
   return (
     <div className="mt-2 space-y-2 border-t pt-2">
@@ -116,6 +118,16 @@ function ApprovalCard({
           <Button size="sm" onClick={() => onDecide(approval.id, true)}>
             Aprobar
           </Button>
+          {approval.tools && approval.tools.length > 0 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              title="Permitir estas herramientas sin preguntar en este proyecto. Los bloqueos de seguridad siguen vigentes."
+              onClick={() => onDecide(approval.id, true, true)}
+            >
+              Aprobar siempre aquí
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={() => onDecide(approval.id, false)}>
             Rechazar
           </Button>
@@ -141,7 +153,7 @@ interface Props {
   previewContext?: string;
   onClearContext?: () => void;
   onEditMessage: (index: number, content: string) => void;
-  onApproval: (id: string, ok: boolean) => void;
+  onApproval: (id: string, ok: boolean, always?: boolean) => void;
   queued: QueuedMessage[];
   onQueue: (text: string, extras: ChatExtras) => void;
   onSendNow: (id: string) => void;

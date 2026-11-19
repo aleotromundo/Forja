@@ -81,18 +81,47 @@ export const DEFAULT_RULES: Rule[] = [
   { action: "run_command", resource: "*sudo *", effect: "deny" },
 ];
 
-/** Decide qué pasa con una llamada. Sin regla que coincida, usa `fallback`. */
+/** Decide qué pasa con una llamada. Un `deny` que coincida siempre gana; si no, la última regla que coincide; si ninguna, `fallback`. */
 export function decide(
   call: { name: string; args: Record<string, unknown> },
   rules: Rule[] = DEFAULT_RULES,
   fallback: Effect = "ask",
 ): Decision {
   const resource = resourceOf(call.name, call.args);
-  let rule: Rule | undefined;
-  for (const candidate of rules) {
-    if (wildcardMatch(candidate.action, call.name) && wildcardMatch(candidate.resource, resource)) {
-      rule = candidate;
-    }
+  const matches = rules.filter(
+    (r) => wildcardMatch(r.action, call.name) && wildcardMatch(r.resource, resource),
+  );
+  const denied = matches.find((r) => r.effect === "deny");
+  if (denied) return { effect: "deny", rule: denied };
+  const last = matches[matches.length - 1];
+  return last ? { effect: last.effect, rule: last } : { effect: fallback };
+}
+
+/** Reglas «aprobar siempre» para las herramientas indicadas. Los bloqueos siguen ganando. */
+export function allowAlwaysRules(tools: string[]): Rule[] {
+  return [...new Set(tools)].map((action) => ({ action, resource: "*", effect: "allow" as const }));
+}
+
+export const PROJECT_RULES_PREFIX = "forja.permisos.v1:";
+
+/** Reglas guardadas para un proyecto. Si no hay nada guardado o está dañado, devuelve []. */
+export function loadProjectRules(
+  storage: Pick<Storage, "getItem"> | undefined,
+  project: string,
+): Rule[] {
+  try {
+    const raw = storage?.getItem(PROJECT_RULES_PREFIX + project);
+    const data = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(data) ? (data as Rule[]) : [];
+  } catch {
+    return [];
   }
-  return rule ? { effect: rule.effect, rule } : { effect: fallback };
+}
+
+export function saveProjectRules(
+  storage: Pick<Storage, "setItem"> | undefined,
+  project: string,
+  rules: Rule[],
+) {
+  storage?.setItem(PROJECT_RULES_PREFIX + project, JSON.stringify(rules));
 }

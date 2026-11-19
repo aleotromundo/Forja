@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { decide, DEFAULT_RULES, resourceOf, wildcardMatch } from "./permission-rules";
+import {
+  allowAlwaysRules,
+  decide,
+  DEFAULT_RULES,
+  loadProjectRules,
+  resourceOf,
+  saveProjectRules,
+  wildcardMatch,
+} from "./permission-rules";
 
 describe("wildcardMatch", () => {
   it("usa * y ? sin distinguir mayúsculas", () => {
@@ -62,5 +70,31 @@ describe("resourceOf", () => {
     expect(resourceOf("write_file", { path: "a.ts" })).toBe("a.ts");
     expect(resourceOf("run_command", { command: " pnpm test " })).toBe("pnpm test");
     expect(resourceOf("download_file", { url: "https://x" })).toBe("https://x");
+  });
+});
+
+describe("aprobar siempre", () => {
+  it("una regla allow guardada no anula un bloqueo", () => {
+    const rules = [...DEFAULT_RULES, ...allowAlwaysRules(["write_file", "run_command"])];
+    expect(decide({ name: "write_file", args: { path: "src/a.ts" } }, rules).effect).toBe("allow");
+    expect(decide({ name: "write_file", args: { path: ".env" } }, rules).effect).toBe("deny");
+    expect(decide({ name: "run_command", args: { command: "git push" } }, rules).effect).toBe(
+      "deny",
+    );
+  });
+
+  it("guarda y recupera reglas por proyecto", () => {
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    };
+    saveProjectRules(storage, "mi-proyecto", allowAlwaysRules(["write_file"]));
+    expect(loadProjectRules(storage, "mi-proyecto")).toEqual([
+      { action: "write_file", resource: "*", effect: "allow" },
+    ]);
+    expect(loadProjectRules(storage, "otro")).toEqual([]);
+    store.set("x", "{roto");
+    expect(loadProjectRules({ getItem: () => "{roto" }, "p")).toEqual([]);
   });
 });

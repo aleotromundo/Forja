@@ -88,6 +88,12 @@ import {
 } from "@/lib/image-search";
 import { searchImages } from "@/lib/images.functions";
 import {
+  allowAlwaysRules,
+  DEFAULT_RULES,
+  loadProjectRules,
+  saveProjectRules,
+} from "@/lib/permission-rules";
+import {
   agentCall,
   AGENT_URL,
   clearAgentSettings,
@@ -553,9 +559,14 @@ export function Workbench() {
 
   const approvalWaiters = useRef(new Map<string, (ok: boolean) => void>());
 
-  const resolveApproval = (id: string, ok: boolean) => {
+  const resolveApproval = (id: string, ok: boolean, always = false) => {
     const waiter = approvalWaiters.current.get(id);
     approvalWaiters.current.delete(id);
+    if (ok && always && root) {
+      const tools = messages.find((m) => m.approval?.id === id)?.approval?.tools ?? [];
+      const current = loadProjectRules(window.localStorage, root.name);
+      saveProjectRules(window.localStorage, root.name, [...current, ...allowAlwaysRules(tools)]);
+    }
     setMessages((ms) =>
       ms.map((m) =>
         m.approval?.id === id
@@ -567,7 +578,7 @@ export function Workbench() {
   };
 
   // Pregunta de permiso dentro del chat para acciones sensibles (borrar o commit).
-  const askApproval = (items: string[]) => {
+  const askApproval = (items: string[], tools: string[] = []) => {
     if (isMobile) setMobilePanel("chat");
     const id = `ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setMessages((ms) => [
@@ -575,7 +586,7 @@ export function Workbench() {
       {
         role: "assistant",
         content: "Necesito tu permiso para estas acciones:",
-        approval: { id, items, status: "pending" },
+        approval: { id, items, tools, status: "pending" },
         provider: "agente",
         team: [],
       },
@@ -829,6 +840,7 @@ export function Workbench() {
     agentActiveRef.current = true;
     const messages: unknown[] = [...chatContext];
     const result = await runAgentLoop(messages, {
+      rules: [...DEFAULT_RULES, ...loadProjectRules(window.localStorage, root?.name ?? "proyecto")],
       ask: async (msgs) => {
         setRequestPhase("consulting");
         const step = await askAgent({ data: { messages: msgs } });
@@ -875,7 +887,10 @@ export function Workbench() {
       approve: (calls: ToolCall[]) =>
         autonomy === "unattended"
           ? Promise.resolve(true)
-          : askApproval(calls.map((c) => `${c.name} ${JSON.stringify(c.args).slice(0, 160)}`)),
+          : askApproval(
+              calls.map((c) => `${c.name} ${JSON.stringify(c.args).slice(0, 160)}`),
+              calls.map((c) => c.name),
+            ),
       drain: () => steerRef.current.splice(0),
       onSteer: (text) => setMessages((m) => [...m, { role: "user", content: text }]),
       shouldStop: () => stopRef.current,
