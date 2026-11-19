@@ -278,6 +278,52 @@ export function createAgent({ root, token }) {
       };
     },
 
+    "/web/download-image": async ({ query, path: rel }) => {
+      if (typeof query !== "string" || query.trim().length < 2 || query.length > 120)
+        throw new Error("La búsqueda de imágenes necesita una consulta breve.");
+      if (typeof rel !== "string" || !rel.trim()) throw new Error("Falta la ruta de destino.");
+      const endpoint = new URL("https://commons.wikimedia.org/w/api.php");
+      endpoint.search = new URLSearchParams({
+        action: "query",
+        generator: "search",
+        gsrsearch: query.trim(),
+        gsrnamespace: "6",
+        gsrlimit: "8",
+        prop: "imageinfo",
+        iiprop: "url|mime|size",
+        format: "json",
+        origin: "*",
+      });
+      const response = await fetch(endpoint, { headers: { "User-Agent": "Forja/0.1 image search" } });
+      if (!response.ok) throw new Error(`La búsqueda respondió ${response.status}.`);
+      const data = await response.json();
+      const pages = Object.values(data?.query?.pages ?? {});
+      const results = pages
+        .map((page) => ({
+          title: page.title,
+          url: page.imageinfo?.[0]?.url,
+          mime: page.imageinfo?.[0]?.mime,
+          width: page.imageinfo?.[0]?.width,
+          height: page.imageinfo?.[0]?.height,
+        }))
+        .filter((item) =>
+          typeof item.url === "string" && /^image\/(png|jpe?g|webp|gif)$/i.test(item.mime ?? ""),
+        );
+      const selected = results[0];
+      if (!selected?.url) throw new Error(`No encontré una imagen pública para "${query}".`);
+      const url = safeDownloadUrl(selected.url);
+      const full = await safe(rel);
+      const image = await fetch(url, { redirect: "follow" });
+      const finalUrl = new URL(image.url || url.href);
+      safeDownloadUrl(finalUrl.href);
+      if (!image.ok) throw new Error(`La imagen respondió ${image.status}.`);
+      const buffer = Buffer.from(await image.arrayBuffer());
+      if (buffer.length > MAX_DOWNLOAD) throw new Error("La imagen supera el límite de 20 MB.");
+      await fs.mkdir(path.dirname(full), { recursive: true });
+      await fs.writeFile(full, buffer);
+      return { ok: true, path: rel, bytes: buffer.length, title: selected.title, source: "Wikimedia Commons" };
+    },
+
     "/fs/search": async ({ query }) => {
       if (typeof query !== "string" || query.length < 2)
         throw new Error("La búsqueda necesita al menos 2 caracteres.");

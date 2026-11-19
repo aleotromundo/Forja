@@ -7,6 +7,7 @@ export const APPROVAL_REQUIRED = new Set([
   "delete_path",
   "move_path",
   "download_file",
+  "download_image",
   "git_commit",
   "run_command",
 ]);
@@ -19,6 +20,7 @@ export const TOOL_ROUTES: Record<string, string> = {
   delete_path: "/fs/delete",
   move_path: "/fs/move",
   download_file: "/fs/download",
+  download_image: "/web/download-image",
   search_text: "/fs/search",
   git_status: "/git/status",
   git_log: "/git/log",
@@ -34,6 +36,7 @@ export const FILE_ACTIONS: Record<string, "write" | "mkdir" | "delete" | "move">
   delete_path: "delete",
   move_path: "move",
   download_file: "write",
+  download_image: "write",
 };
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({
@@ -82,6 +85,14 @@ export const AGENT_TOOLS = [
     "download_file",
     "Descarga un archivo binario desde una URL HTTP o HTTPS y lo guarda dentro del proyecto. Requiere aprobación.",
     obj({ url: str("URL HTTP o HTTPS"), path: str("ruta relativa de destino") }, ["url", "path"]),
+  ),
+  fn(
+    "download_image",
+    "Busca una imagen pública en internet y la descarga directamente dentro del proyecto. No muestres ni pidas la URL: usá la consulta y la ruta indicada. Requiere aprobación.",
+    obj({ query: str("qué imagen real buscar"), path: str("ruta relativa de destino") }, [
+      "query",
+      "path",
+    ]),
   ),
   fn(
     "search_text",
@@ -135,7 +146,7 @@ Reglas:
 - No respondas solo anunciando que vas a abrir, leer o revisar algo: ejecutá primero la herramienta necesaria y luego informá el resultado.
 - Hacé cambios quirúrgicos: solo lo que se pidió. No reformatees ni refactorices código no relacionado.
 - No pidas al usuario que pegue archivos: leelos con read_file.
-- Si el usuario pide descargar un archivo o imagen y proporciona una URL directa, ejecutá 'download_file'; no digas que no tenés terminal, permisos o acceso a internet cuando el agente local esté conectado. Si no proporciona una URL, explicá que esta versión necesita el enlace directo y pedilo; no inventes una búsqueda ni enlaces.
+- Si el usuario pide una imagen real de internet sin proporcionar una URL, usá 'download_image' directamente: elegí una consulta descriptiva, guardala en una ruta adecuada como 'public/images/ferreteria-taladro.jpg' y usala después en el código. No muestres URLs ni pidas que el usuario las copie. Si proporciona una URL directa, ejecutá 'download_file'.
 - Nunca afirmes que una acción terminó solo porque la anunciaste: esperá el resultado de la herramienta y describí el error si falló.
 - Las acciones que modifican el proyecto las aprueba el usuario; si una fue rechazada, no insistas: explicá y ofrecé alternativas.
 - No hagas push ni instales paquetes.

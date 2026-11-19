@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Permite que la ventana principal de Forja use sus comandos locales desde la web oficial.",
+  "windows": ["main"],
+  "permissions": ["core:default"],
+  "remote": {
+    "urls": ["https://forjah.vercel.app/**"]
+  }
+}
