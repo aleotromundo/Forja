@@ -141,6 +141,8 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
 const MAX_AUTO_STEPS = 8;
 const DOWNLOAD_REQUEST =
   /(?:descarg[aá]|baj[aá]|download|guard[aá]).{0,240}https?:\/\/\S+|https?:\/\/\S+.{0,240}(?:imagen|archivo|png|jpe?g|gif|webp|svg|pdf|binario)/i;
+const IMAGE_SEARCH_REQUEST =
+  /(?:descarg[aá]|baj[aá]|busc[aá]|consegu[ií]|tra[eé]|dame).{0,120}(?:imagen|foto|fotograf[ií]a).{0,120}(?:internet|web|online|perro|gato|logo|paisaje)/i;
 const DESKTOP_INSTALLER_URL =
   (import.meta.env["VITE_DESKTOP_INSTALLER_URL"] as string | undefined) ||
   "/downloads/Forja_0.1.0_x64-setup.exe";
@@ -935,6 +937,12 @@ export function Workbench() {
       const chatContext = buildContext(history, summary);
 
       const directDownload = directDownloadRequest(input);
+      if (IMAGE_SEARCH_REQUEST.test(input) && !directDownload && extras.mode !== "plan") {
+        say(
+          "El agente local está conectado, pero esta versión necesita una URL directa para descargar. Pegá el enlace de la imagen y la guardo automáticamente dentro del proyecto. La búsqueda web de imágenes todavía no está habilitada.",
+        );
+        return true;
+      }
       if (directDownload && !agentLinked && !isDesktopBridge() && extras.mode !== "plan") {
         say(
           "Para descargar ese archivo dentro del proyecto, abrí el modo Modificar y conectá el agente local desde el botón «Agente». En la app de escritorio esto se conecta automáticamente al elegir la carpeta.",
