@@ -215,7 +215,7 @@ fn start_forja(
     navigate_forja(
         &app,
         &format!(
-            "{FORJA_URL}#agentToken={token}&projectName={}",
+            "{FORJA_URL}?desktop=1#agentToken={token}&projectName={}",
             urlencoding::encode(project_name)
         ),
     )?;
@@ -251,7 +251,7 @@ fn agent_script(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 #[tauri::command]
 fn open_forja(app: tauri::AppHandle) -> Result<(), String> {
-    navigate_forja(&app, FORJA_URL)
+    navigate_forja(&app, &format!("{FORJA_URL}?desktop=1"))
 }
 
 fn navigate_forja(app: &tauri::AppHandle, url: &str) -> Result<(), String> {

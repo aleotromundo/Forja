@@ -49,6 +49,8 @@ La IA no debe limitarse a generar código para copiar. Debe actuar sobre el proy
 - [x] Agregar `scripts/setup-desktop.ps1` y `DESKTOP.md` para reproducir la preparación de la app de escritorio.
 - [x] Hacer que Tauri inicie automáticamente el agente local, seleccione la carpeta y empareje la web sin el lanzador `.bat`.
 - [ ] Migrar las operaciones del agente HTTP a IPC nativo de Tauri, siguiendo el modelo de servidor local privado de OpenCode.
+- [x] Comparar Forja con OpenCode V2 instalado en Windows y documentar arquitectura, permisos, agentes, herramientas, MCP, continuidad y prioridades.
+- [ ] Implementar el servidor local persistente de Tauri con sesiones y políticas por recurso.
 
 ### P2 — Convertirlo en un agente de desarrollo más completo
 

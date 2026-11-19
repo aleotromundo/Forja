@@ -4,18 +4,26 @@ import { agentCall } from "./local-agent";
 type TauriGlobal = {
   core?: { invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown> };
 };
+type TauriInternals = {
+  invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
+};
 declare global {
   interface Window {
     __TAURI__?: TauriGlobal;
+    __TAURI_INTERNALS__?: TauriInternals;
   }
 }
 
+function tauriInvoke() {
+  return window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+}
+
 export function isDesktopBridge() {
-  return typeof window !== "undefined" && typeof window.__TAURI__?.core?.invoke === "function";
+  return typeof window !== "undefined" && typeof tauriInvoke() === "function";
 }
 
 export function desktopInvoke<T>(command: string, args?: Record<string, unknown>) {
-  const invoke = window.__TAURI__?.core?.invoke;
+  const invoke = tauriInvoke();
   if (!invoke) throw new Error("La app de escritorio no está disponible.");
   return invoke(command, args) as Promise<T>;
 }

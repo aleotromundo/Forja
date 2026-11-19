@@ -1,5 +1,6 @@
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { Workbench } from "@/components/forja/Workbench";
+import { LandingPage } from "@/components/forja/LandingPage";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -8,12 +9,12 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Editor tipo VS Code en el navegador: abrí carpetas locales y dejá que la IA modifique tu código.",
+          "Forja es tu espacio de desarrollo con IA: trabajá sobre tu proyecto local con control y herramientas reales.",
       },
       { property: "og:title", content: "Forja — Editor de código con IA" },
       {
         property: "og:description",
-        content: "Abrí tu proyecto local y editalo hablando con la IA.",
+        content: "Descargá Forja para Windows y convertí tus ideas en software.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -23,9 +24,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const desktop =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("desktop") === "1";
   return (
     <ClientOnly fallback={<div className="h-screen bg-background" />}>
-      <Workbench />
+      {desktop ? <Workbench /> : <LandingPage />}
     </ClientOnly>
   );
 }

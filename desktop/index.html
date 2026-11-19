@@ -3,29 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="refresh" content="0;url=https://forjah.vercel.app/" />
+    <meta http-equiv="refresh" content="0;url=https://forjah.vercel.app/?desktop=1" />
     <title>Forja</title>
     <style>
-      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-      body { min-height: 100vh; display: grid; place-items: center; margin: 0; background: #09090b; color: #fafafa; }
-      main { max-width: 34rem; padding: 2rem; text-align: center; }
-      a { color: #f97316; }
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        margin: 0;
+        background: #09090b;
+        color: #fafafa;
+      }
+      main {
+        max-width: 34rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      a {
+        color: #f97316;
+      }
     </style>
   </head>
   <body>
     <main>
       <p>Abriendo Forja…</p>
-      <p><a href="https://forjah.vercel.app/">Continuar en Forja</a></p>
+      <p><a href="https://forjah.vercel.app/?desktop=1">Continuar en Forja</a></p>
     </main>
     <script>
-      if (window.__TAURI__?.core?.invoke) {
-        window.__TAURI__.core.invoke("start_forja").catch((error) => {
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      if (invoke) {
+        invoke("start_forja").catch((error) => {
           console.error(error);
           document.querySelector("main").innerHTML =
             "<p>No se pudo iniciar Forja. Verificá que Node.js esté instalado y volvé a intentarlo.</p>";
         });
       } else {
-        window.location.replace("https://forjah.vercel.app/");
+        window.location.replace("https://forjah.vercel.app/?desktop=1");
       }
     </script>
   </body>
