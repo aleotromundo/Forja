@@ -210,7 +210,8 @@ export function ChatPanel({
   const [projectPaths, setProjectPaths] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [reading, setReading] = useState(false);
-  const [mode, setMode] = useState<ChatMode>("plan");
+  // Un solo modo: la IA actúa sobre el proyecto y cada cambio pide aprobación.
+  const mode: ChatMode = "edit";
   const [pendingEdit, setPendingEdit] = useState<{ text: string; label: string } | null>(null);
   const [confirmApply, setConfirmApply] = useState(false);
   const lastModeRef = useRef<ChatMode | null>(null);
@@ -300,32 +301,13 @@ export function ChatPanel({
       setProjectPaths([]);
       return;
     }
-    // Venía de Planear y ahora pide empezar: pedimos confirmación antes de tocar archivos.
-    if (mode === "edit" && lastModeRef.current === "plan" && APPLY_INTENT.test(t)) {
-      setConfirmApply(true);
-      return;
-    }
     dictation.stop();
-    const sentMode = mode;
     const sent = await onSend(t, { attachments, projectPaths, mode });
     if (sent) {
-      lastModeRef.current = sentMode;
       setText("");
       setAttachments([]);
       setProjectPaths([]);
-      if (sentMode === "plan" && APPLY_INTENT.test(t)) {
-        setPendingEdit({
-          text: APPLY_TEXT,
-          label: "Para empezar a hacer los cambios, cambiá a Modificar.",
-        });
-      } else if (sentMode === "plan" && EDIT_INTENT.test(t)) {
-        setPendingEdit({
-          text: t,
-          label: "Esto parece un pedido de cambios en el proyecto. ¿Lo hacemos?",
-        });
-      } else {
-        setPendingEdit(null);
-      }
+      setPendingEdit(null);
     }
   };
 
@@ -335,7 +317,6 @@ export function ChatPanel({
     setPendingEdit(null);
     setText("");
     dictation.stop();
-    setMode("edit");
     const sent = await onSend(text, { attachments: [], projectPaths: [], mode: "edit" });
     if (sent) lastModeRef.current = "edit";
   };
@@ -384,35 +365,6 @@ export function ChatPanel({
               ? "Conectando"
               : "Sin conexión"}
         </span>
-        <div
-          role="radiogroup"
-          aria-label="Modo del chat"
-          className="ml-auto flex shrink-0 rounded-md border p-0.5 normal-case tracking-normal"
-        >
-          {(["plan", "edit"] as const).map((m) => (
-            <button
-              key={m}
-              role="radio"
-              aria-checked={mode === m}
-              onClick={() => setMode(m)}
-              title={
-                m === "plan"
-                  ? "Conversar ideas sin tocar archivos"
-                  : agentLinked
-                    ? "La IA puede modificar archivos y ejecutar tests, tipos, lint y build locales. Cada comando requiere tu aprobación."
-                    : "La IA puede modificar archivos, pero no validar localmente. Conectá el agente para habilitar tests, tipos, lint y build."
-              }
-              className={cn(
-                "rounded px-2 py-0.5 text-[11px]",
-                mode === m
-                  ? "bg-ember text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {m === "plan" ? "Planear" : "Modificar"}
-            </button>
-          ))}
-        </div>
         <button
           type="button"
           aria-pressed={autonomy === "unattended"}
@@ -423,7 +375,7 @@ export function ChatPanel({
           }
           onClick={() => onAutonomyChange(autonomy === "unattended" ? "assisted" : "unattended")}
           className={cn(
-            "shrink-0 rounded px-2 py-0.5 text-[11px] normal-case tracking-normal",
+            "ml-auto shrink-0 rounded px-2 py-0.5 text-[11px] normal-case tracking-normal",
             autonomy === "unattended"
               ? "bg-amber-500 text-black"
               : "text-muted-foreground hover:text-foreground",
@@ -633,9 +585,7 @@ export function ChatPanel({
                   ? "Consultando proveedores…"
                   : requestPhase === "applying"
                     ? "Procesando respuesta…"
-                    : mode === "plan"
-                      ? "El equipo está pensando…"
-                      : "El equipo está forjando cambios…"}
+                    : "El equipo está forjando cambios…"}
               {elapsed > 0 && ` ${elapsed}s`}
               {elapsed >= 12 && requestPhase === "consulting" && (
                 <span className="text-xs"> · puede estar probando otra API</span>
@@ -721,7 +671,6 @@ export function ChatPanel({
               onClick={() => {
                 setConfirmApply(false);
                 setText("");
-                setMode("plan");
               }}
             >
               Seguir planeando
@@ -792,9 +741,7 @@ export function ChatPanel({
             placeholder={
               disabled
                 ? "Abrí una carpeta primero"
-                : mode === "plan"
-                  ? "Planeá con el equipo: contale tu idea (no toca archivos)"
-                  : 'El equipo puede modificar archivos: pedí cambios o "aplicá lo planeado"'
+                : "Pedí cambios en el proyecto: cada modificación te pide aprobación"
             }
             className="w-full resize-none bg-transparent px-3 py-2 text-[13px] outline-none placeholder:text-muted-foreground"
           />
