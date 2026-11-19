@@ -964,8 +964,9 @@ export function Workbench() {
       }
       // Context: active file, open tabs, and any file path mentioned in the message.
       const wanted = new Set<string>();
-      // Memoria del proyecto: se carga si existe.
+      // Memoria del proyecto y reglas del repo (AGENTS.md, como en OpenCode): se cargan si existen.
       wanted.add(".forja/memoria.md");
+      wanted.add("AGENTS.md");
       const lowerInput = input.toLowerCase();
       const mentionedFiles = findMentionedProjectFiles(input, files);
       const mentionedFile = mentionedFiles[0];

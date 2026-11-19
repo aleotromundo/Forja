@@ -193,3 +193,30 @@ describe("agent loop", () => {
     expect(result.limitReached).toBe(true);
   });
 });
+
+describe("agent loop: reglas de permisos", () => {
+  it("no ejecuta ni pregunta por una escritura bloqueada por regla", async () => {
+    const ran: string[] = [];
+    let asked = false;
+    const result = await runAgentLoop([], {
+      ask: scripted([
+        {
+          type: "tool_calls",
+          assistantMessage: { role: "assistant", tool_calls: [] },
+          calls: [{ id: "1", name: "write_file", args: { path: ".env", content: "x" } }],
+        },
+      ]),
+      runTool: async (name) => {
+        ran.push(name);
+        return { ok: true };
+      },
+      approve: async () => {
+        asked = true;
+        return true;
+      },
+    });
+    expect(ran).toEqual([]);
+    expect(asked).toBe(false);
+    expect(result.reply).toContain("no se confirmó");
+  });
+});

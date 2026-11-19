@@ -1,3 +1,5 @@
+import { truncateToolOutput } from "./tool-output";
+import { decide, DEFAULT_RULES, type Rule } from "./permission-rules";
 import { APPROVAL_REQUIRED, FILE_ACTIONS } from "./agent-tools";
 
 export interface ToolCall {
@@ -20,6 +22,8 @@ export interface AgentLoopDeps {
   ask: (messages: unknown[]) => Promise<ModelStep>;
   runTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   approve: (calls: ToolCall[]) => Promise<boolean>;
+  /** Reglas de permisos por recurso; por defecto, DEFAULT_RULES. */
+  rules?: Rule[];
   maxRounds?: number;
   /** Mensajes que el usuario mandó mientras se trabajaba; se suman en el siguiente paso. */
   drain?: () => string[];
@@ -106,17 +110,28 @@ export async function runAgentLoop(
     }
 
     messages.push(step.assistantMessage);
-    const needsApproval = step.calls.filter((call) => APPROVAL_REQUIRED.has(call.name));
+    const rules = deps.rules ?? DEFAULT_RULES;
+    const decisions = new Map(
+      step.calls.map((call) => [
+        call,
+        decide(call, rules, APPROVAL_REQUIRED.has(call.name) ? "ask" : "allow").effect,
+      ]),
+    );
+    const blocked = step.calls.filter((call) => decisions.get(call) === "deny");
+    const needsApproval = step.calls.filter((call) => decisions.get(call) === "ask");
     const approved = needsApproval.length === 0 || (await deps.approve(needsApproval));
 
     for (const call of step.calls) {
       let content: string;
-      if (!approved && needsApproval.includes(call)) {
+      if (blocked.includes(call)) {
+        content = JSON.stringify({ error: `Bloqueado por una regla de permisos: ${call.name}.` });
+        toolErrors.push(`Bloqueado por una regla de permisos: ${call.name}.`);
+      } else if (!approved && needsApproval.includes(call)) {
         content = JSON.stringify({ error: "El usuario no aprobó esta acción." });
       } else {
         try {
           const result = await deps.runTool(call.name, call.args);
-          content = JSON.stringify(result ?? { ok: true }).slice(0, MAX_TOOL_CHARS);
+          content = truncateToolOutput(JSON.stringify(result ?? { ok: true }), MAX_TOOL_CHARS);
           if (result && typeof result === "object" && "error" in result) {
             toolErrors.push(String(result.error));
           }
@@ -130,7 +145,7 @@ export async function runAgentLoop(
         } catch (error) {
           const message = (error as Error).message;
           toolErrors.push(message);
-          content = JSON.stringify({ error: message }).slice(0, MAX_TOOL_CHARS);
+          content = truncateToolOutput(JSON.stringify({ error: message }), MAX_TOOL_CHARS);
         }
       }
       messages.push({ role: "tool", tool_call_id: call.id, content });
