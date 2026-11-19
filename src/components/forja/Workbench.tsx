@@ -954,9 +954,15 @@ export function Workbench() {
       const chatContext = buildContext(history, summary);
 
       const directDownload = directDownloadRequest(input);
-      if (IMAGE_SEARCH_REQUEST.test(input) && !directDownload && extras.mode !== "plan") {
+      if (
+        IMAGE_SEARCH_REQUEST.test(input) &&
+        !directDownload &&
+        !agentLinked &&
+        !isDesktopBridge() &&
+        extras.mode !== "plan"
+      ) {
         say(
-          "El agente local está conectado, pero esta versión necesita una URL directa para descargar. Pegá el enlace de la imagen y la guardo automáticamente dentro del proyecto. La búsqueda web de imágenes todavía no está habilitada.",
+          "Para buscar y descargar imágenes automáticamente dentro del proyecto, conectá el agente local desde el botón «Agente». En la app de escritorio esto se conecta automáticamente.",
         );
         return true;
       }
