@@ -194,6 +194,23 @@ function directDownloadRequest(input: string) {
   return { url, path };
 }
 
+function readableError(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const value = error as { message?: unknown; error?: unknown; reason?: unknown };
+    for (const candidate of [value.message, value.error, value.reason]) {
+      if (typeof candidate === "string" && candidate.trim()) return candidate;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Error desconocido.";
+    }
+  }
+  return "Error desconocido.";
+}
+
 async function askForjaStreaming(
   data: AiInput,
   signal: AbortSignal,
@@ -984,7 +1001,7 @@ export function Workbench() {
             ...m,
             {
               role: "assistant",
-              content: `No se pudo descargar el archivo: ${(error as Error).message}`,
+              content: `No se pudo descargar el archivo: ${readableError(error)}`,
               provider: "agente",
               team: [],
               error: true,
