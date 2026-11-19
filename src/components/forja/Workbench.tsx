@@ -704,23 +704,26 @@ export function Workbench() {
       document.title,
       `${window.location.pathname}${window.location.search}`,
     );
-    void agentCall("/health", {})
-      .then(async () => {
-        setAgentLinked(true);
-        if (!projectName) return;
-        const recentProject = (await listRecent()).find((item) => item.name === projectName);
-        if (recentProject && (await ensureAccess(recentProject.handle))) {
-          await openHandle(recentProject.handle);
-          toast.success(`Proyecto reutilizado: ${projectName}`);
-        } else {
-          await openHandle(createAgentDirectoryHandle(projectName));
-          toast.success(`Proyecto conectado: ${projectName}`);
-        }
-      })
-      .catch(() => {
-        clearAgentSettings();
-        say("No pude conectar automáticamente el agente local. Ejecutá el lanzador nuevamente.");
-      });
+    const connectProject = async () => {
+      setAgentLinked(true);
+      if (!projectName) return;
+      const recentProject = (await listRecent()).find((item) => item.name === projectName);
+      if (recentProject && (await ensureAccess(recentProject.handle))) {
+        await openHandle(recentProject.handle);
+        toast.success(`Proyecto reutilizado: ${projectName}`);
+      } else {
+        await openHandle(createAgentDirectoryHandle(projectName));
+        toast.success(`Proyecto conectado: ${projectName}`);
+      }
+    };
+    const connection = isDesktopBridge()
+      ? connectProject()
+      : agentCall("/health", {}).then(connectProject);
+    void connection.catch(() => {
+      clearAgentSettings();
+      setAgentLinked(false);
+      say("No pude conectar automáticamente el agente local. Ejecutá el lanzador nuevamente.");
+    });
   }, []);
 
   // Modo agente: el modelo lee, cambia y verifica el proyecto con herramientas en la PC del usuario.
