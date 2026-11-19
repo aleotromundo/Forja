@@ -1,4 +1,4 @@
-import { ArrowRight, Download, Github, ShieldCheck, Sparkles, Terminal } from "lucide-react";
+import { ArrowRight, Code2, Download, Github, ShieldCheck, Sparkles } from "lucide-react";
 
 const INSTALLER_URL =
   (import.meta.env["VITE_DESKTOP_INSTALLER_URL"] as string | undefined) ||
@@ -7,6 +7,10 @@ const INSTALLER_URL =
 export function LandingPage() {
   return (
     <main className="landing-shell">
+      <video className="landing-video" autoPlay muted loop playsInline aria-hidden="true">
+        <source src="/forja-showcase.mp4" type="video/mp4" />
+      </video>
+      <div className="landing-video-shade" aria-hidden="true" />
       <nav className="landing-nav">
         <a className="landing-brand" href="/" aria-label="Forja inicio">
           <span className="landing-mark">
@@ -54,19 +58,63 @@ export function LandingPage() {
           </p>
         </div>
 
-        <div className="landing-scene" aria-label="Vista abstracta del espacio de trabajo de Forja">
-          <div className="scene-orbit scene-orbit-one" />
-          <div className="scene-orbit scene-orbit-two" />
-          <div className="scene-core">
-            <span>F</span>
+        <div
+          className="landing-product-shot"
+          aria-label="Vista previa del espacio de trabajo de Forja"
+        >
+          <div className="shot-topbar">
+            <span className="shot-lights">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span>mi-proyecto / Forja</span>
+            <span className="shot-status">
+              <b /> agente local
+            </span>
           </div>
-          <div className="scene-card scene-card-top">
-            <Terminal size={14} />
-            <span>agente local</span>
-            <b>activo</b>
-          </div>
-          <div className="scene-card scene-card-bottom">
-            <span className="scene-dot" /> proyecto abierto <strong>100%</strong>
+          <div className="shot-body">
+            <aside>
+              <span className="shot-logo">
+                <Sparkles size={13} />
+              </span>
+              <span className="shot-line active" />
+              <span className="shot-line" />
+              <span className="shot-line" />
+            </aside>
+            <div className="shot-files">
+              <small>EXPLORADOR</small>
+              <span>⌄ mi-proyecto</span>
+              <span className="selected">◇ README.md</span>
+              <span>◇ package.json</span>
+              <span>⌄ src</span>
+              <span className="indent">◇ app.tsx</span>
+            </div>
+            <div className="shot-editor">
+              <div className="shot-tab">
+                <Code2 size={12} /> README.md
+              </div>
+              <div className="shot-code">
+                <span>
+                  <b>01</b> <em># Construí con Forja</em>
+                </span>
+                <span>
+                  <b>02</b>
+                </span>
+                <span>
+                  <b>03</b> Forja trabaja sobre tu proyecto
+                </span>
+                <span>
+                  <b>04</b> con una IA que entiende el contexto.
+                </span>
+                <span>
+                  <b>05</b>
+                </span>
+                <span className="shot-cursor">
+                  <b>06</b> _
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
