@@ -37,6 +37,7 @@ import {
   readFile,
   readTree,
   removeEntry,
+  writeBinaryFile,
   writeFile,
   type FileNode,
 } from "@/lib/fs";
@@ -78,6 +79,14 @@ import {
   type ConversationSummary,
 } from "@/lib/conversation-memory";
 import { SPECIALISTS, specialistPrompt } from "@/lib/agents";
+import {
+  extractImagePath,
+  IMAGE_QUERY_SYSTEM,
+  looksLikeImageRequest,
+  parseImageQueries,
+  type FoundImage,
+} from "@/lib/image-search";
+import { searchImages } from "@/lib/images.functions";
 import {
   agentCall,
   AGENT_URL,
@@ -141,8 +150,6 @@ function useDrag(initial: number, min: number, max: number, invert = false) {
 const MAX_AUTO_STEPS = 8;
 const DOWNLOAD_REQUEST =
   /(?:descarg[aá]|baj[aá]|download|guard[aá]).{0,240}https?:\/\/\S+|https?:\/\/\S+.{0,240}(?:imagen|archivo|png|jpe?g|gif|webp|svg|pdf|binario)/i;
-const IMAGE_SEARCH_REQUEST =
-  /(?:descarg[aá]|baj[aá]|busc[aá]|consegu[ií]|tra[eé]|dame).{0,120}(?:imagen|foto|fotograf[ií]a).{0,120}(?:internet|web|online|perro|gato|logo|paisaje)/i;
 const DESKTOP_INSTALLER_URL =
   (import.meta.env["VITE_DESKTOP_INSTALLER_URL"] as string | undefined) ||
   "/downloads/Forja_0.1.0_x64-setup.exe";
@@ -672,6 +679,76 @@ export function Workbench() {
       { role: "assistant", content, provider: "forja", team: [], error: false },
     ]);
 
+  // Guarda una imagen encontrada en la carpeta del proyecto, con la misma aprobación que el resto de las descargas.
+  const saveImageToProject = async (image: FoundImage, path: string): Promise<string> => {
+    if (!root) throw new Error("Abrí una carpeta primero.");
+    const approved =
+      autonomy === "unattended" ||
+      (await askApproval([`guardar imagen en ${path} (${image.title})`]));
+    if (!approved) return "Guardado cancelado.";
+    if (agentLinked || isDesktopBridge()) {
+      const args = { url: image.full, path };
+      if (isDesktopBridge()) await desktopInvoke("desktop_download", args);
+      else await agentCall(TOOL_ROUTES["download_file"]!, args);
+    } else {
+      const res = await fetch(image.full);
+      if (!res.ok) throw new Error(`la imagen respondió ${res.status}`);
+      await writeBinaryFile(root, path, await res.blob());
+    }
+    await refresh();
+    return `Guardada en ${path}.`;
+  };
+
+  // Pedidos de imágenes: busca, muestra en el chat y, si se pidió, guarda en el proyecto.
+  // No depende del agente local.
+  const answerImageRequest = async (input: string, history: ChatMsg[]) => {
+    setRequestPhase("consulting");
+    let plan: { queries: string[]; path: string | null };
+    try {
+      const step = await askAgent({
+        data: {
+          messages: [{ role: "user", content: input }],
+          system: IMAGE_QUERY_SYSTEM,
+          noTools: true,
+        },
+      });
+      plan = parseImageQueries(step.reply, input);
+    } catch {
+      plan = parseImageQueries("", input);
+    }
+    const path = plan.path ?? extractImagePath(input);
+    setRequestPhase("applying");
+    const images = plan.queries.length
+      ? await searchImages({ data: { queries: plan.queries } }).catch(() => [] as FoundImage[])
+      : [];
+    if (images.length === 0) {
+      const content = plan.queries.length
+        ? `No encontré imágenes públicas para: ${plan.queries.join(", ")}. Probá describirla de otra forma.`
+        : "No entendí qué imagen buscar. Contame qué querés ver.";
+      setMessages([...history, { role: "assistant", content, provider: "forja", team: [] }]);
+      return;
+    }
+    let content = `Encontré ${images.length} ${images.length === 1 ? "imagen" : "imágenes"} (${images[0]!.source}) para: ${plan.queries.join(", ")}.`;
+    if (path) {
+      try {
+        content += ` ${await saveImageToProject(images[0]!, path)}`;
+      } catch (err) {
+        content += ` No pude guardarla: ${(err as Error).message}.`;
+      }
+    }
+    setMessages([
+      ...history,
+      {
+        role: "assistant",
+        content,
+        provider: "forja",
+        team: [],
+        images,
+        ...(path ? { imagePath: path } : {}),
+      },
+    ]);
+  };
+
   const connectAgent = async () => {
     const token = window.prompt(
       "Pegá el token que muestra el agente local de Forja (la ventana de tu PC):",
@@ -880,6 +957,10 @@ export function Workbench() {
     setApiStatus("connecting");
     setRequestPhase("preparing");
     try {
+      if (looksLikeImageRequest(input)) {
+        await answerImageRequest(input, history);
+        return true;
+      }
       // Context: active file, open tabs, and any file path mentioned in the message.
       const wanted = new Set<string>();
       // Memoria del proyecto: se carga si existe.
@@ -954,18 +1035,6 @@ export function Workbench() {
       const chatContext = buildContext(history, summary);
 
       const directDownload = directDownloadRequest(input);
-      if (
-        IMAGE_SEARCH_REQUEST.test(input) &&
-        !directDownload &&
-        !agentLinked &&
-        !isDesktopBridge() &&
-        extras.mode !== "plan"
-      ) {
-        say(
-          "Para buscar y descargar imágenes automáticamente dentro del proyecto, conectá el agente local desde el botón «Agente». En la app de escritorio esto se conecta automáticamente.",
-        );
-        return true;
-      }
       if (directDownload && !agentLinked && !isDesktopBridge() && extras.mode !== "plan") {
         say(
           "Para descargar ese archivo dentro del proyecto, abrí el modo Modificar y conectá el agente local desde el botón «Agente». En la app de escritorio esto se conecta automáticamente al elegir la carpeta.",

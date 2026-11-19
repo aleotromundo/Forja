@@ -6,6 +6,15 @@ export interface PersistedChatMessage {
   team?: string[];
   error?: boolean;
   undone?: boolean;
+  images?: {
+    title: string;
+    thumb: string;
+    full: string;
+    width?: number | undefined;
+    height?: number | undefined;
+    source: string;
+  }[];
+  imagePath?: string;
 }
 
 export interface SessionFileChange {

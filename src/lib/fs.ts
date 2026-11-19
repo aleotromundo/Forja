@@ -206,6 +206,15 @@ export async function writeFile(root: FileSystemDirectoryHandle, path: string, c
   await w.close();
 }
 
+export async function writeBinaryFile(root: FileSystemDirectoryHandle, path: string, data: Blob) {
+  const { parts, name } = split(path);
+  const dir = await getDir(root, parts, true);
+  const fh = await dir.getFileHandle(name, { create: true });
+  const w = await fh.createWritable();
+  await w.write(data);
+  await w.close();
+}
+
 export async function createDir(root: FileSystemDirectoryHandle, path: string) {
   await getDir(root, path.split("/").filter(Boolean), true);
 }

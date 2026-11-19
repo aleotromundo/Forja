@@ -26,6 +26,7 @@ import { useDictation } from "./useDictation";
 import type { AutonomyMode } from "@/lib/agent-policy";
 import type { ChatMode } from "@/lib/agents";
 import type { ChatSession } from "@/lib/chat-persistence";
+import { downloadImage, type FoundImage } from "@/lib/image-search";
 
 /** Matches "ruta/archivo.ext" or "ruta/archivo.ext:linea" inside a message. */
 const CODE_REF = /([\w@./-]+\.[A-Za-z0-9]+)(?::(\d+))?/g;
@@ -77,6 +78,8 @@ export interface ChatMsg {
   error?: boolean;
   undone?: boolean;
   approval?: ApprovalRequest;
+  images?: FoundImage[];
+  imagePath?: string;
 }
 
 export interface QueuedMessage {
@@ -510,6 +513,32 @@ export function ChatPanel({
                 m.content
               )}
             </div>
+            {m.images && m.images.length > 0 && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {m.images.map((img) => (
+                  <figure key={img.full} className="min-w-0 space-y-1">
+                    <img
+                      src={img.thumb}
+                      alt={img.title}
+                      loading="lazy"
+                      className="aspect-video w-full rounded bg-muted object-cover"
+                    />
+                    <figcaption className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
+                      <span className="min-w-0 truncate" title={img.title}>
+                        {img.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void downloadImage(img)}
+                        className="shrink-0 rounded px-1.5 py-0.5 text-foreground hover:bg-accent"
+                      >
+                        Descargar
+                      </button>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
             <div className="mt-2 flex items-center gap-1 opacity-60 transition-opacity hover:opacity-100">
               {m.role === "user" && (
                 <button
