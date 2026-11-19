@@ -935,7 +935,13 @@ export function Workbench() {
       const chatContext = buildContext(history, summary);
 
       const directDownload = directDownloadRequest(input);
-      if (directDownload && agentLinked && extras.mode !== "plan") {
+      if (directDownload && !agentLinked && !isDesktopBridge() && extras.mode !== "plan") {
+        say(
+          "Para descargar ese archivo dentro del proyecto, abrí el modo Modificar y conectá el agente local desde el botón «Agente». En la app de escritorio esto se conecta automáticamente al elegir la carpeta.",
+        );
+        return true;
+      }
+      if (directDownload && (agentLinked || isDesktopBridge()) && extras.mode !== "plan") {
         const call: ToolCall = {
           id: `download-${Date.now()}`,
           name: "download_file",
@@ -1508,51 +1514,50 @@ export function Workbench() {
           <span className="min-w-0 truncate">{root ? root.name : "Forja"}</span>
           <span className="ml-auto hidden font-mono sm:inline">Ctrl+P</span>
         </button>
-        <button
-          onClick={() => (agentLinked ? disconnectAgent() : void connectAgent())}
-          title={
-            agentLinked
-              ? "Agente local conectado: la IA puede leer y cambiar tu carpeta. Clic para desconectar."
-              : "Conectar el agente local de tu PC"
-          }
-          className={cn(
-            "shrink-0 rounded px-1.5 py-0.5 hover:bg-accent sm:px-2",
-            agentLinked ? "text-ember" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <Terminal className="h-3.5 w-3.5" />
-          <span className="ml-1 hidden xl:inline">{agentLinked ? "Agente: on" : "Agente"}</span>
-        </button>
-        {!agentLinked && (
+        {isDesktopBridge() ? (
+          <span className="flex shrink-0 items-center rounded px-1.5 py-0.5 text-ember sm:px-2" title="Agente local integrado en Forja">
+            <Terminal className="h-3.5 w-3.5" />
+            <span className="ml-1 hidden xl:inline">Local: on</span>
+          </span>
+        ) : (
           <button
             type="button"
-            onClick={downloadAgentLauncher}
-            title="Descargar lanzador del agente: inicia la conexión automáticamente"
-            className="shrink-0 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground sm:px-2"
+            onClick={() => (agentLinked ? disconnectAgent() : void connectAgent())}
+            title={
+              agentLinked
+                ? "Agente local conectado: la IA puede leer y cambiar tu carpeta. Clic para desconectar."
+                : "Conectar el agente local de tu PC"
+            }
+            className={cn(
+              "shrink-0 rounded px-1.5 py-0.5 hover:bg-accent sm:px-2",
+              agentLinked ? "text-ember" : "text-muted-foreground hover:text-foreground",
+            )}
           >
-            <Download className="h-3.5 w-3.5" />
-            <span className="ml-1 hidden xl:inline">Lanzador</span>
+            <Terminal className="h-3.5 w-3.5" />
+            <span className="ml-1 hidden xl:inline">{agentLinked ? "Agente: on" : "Agente"}</span>
           </button>
         )}
-        <button
-          type="button"
-          onClick={installDesktop}
-          disabled={!DESKTOP_INSTALLER_URL}
-          title={
-            DESKTOP_INSTALLER_URL
-              ? "Descargar Forja para escritorio"
-              : "El instalador de escritorio estará disponible próximamente"
-          }
-          className={cn(
-            "shrink-0 rounded px-1.5 py-0.5 sm:px-2",
-            DESKTOP_INSTALLER_URL
-              ? "text-ember hover:bg-accent"
-              : "cursor-not-allowed text-muted-foreground/50",
-          )}
-        >
-          <Download className="h-3.5 w-3.5" />
-          <span className="ml-1 hidden xl:inline">Escritorio</span>
-        </button>
+        {!isDesktopBridge() && (
+          <button
+            type="button"
+            onClick={installDesktop}
+            disabled={!DESKTOP_INSTALLER_URL}
+            title={
+              DESKTOP_INSTALLER_URL
+                ? "Descargar Forja para escritorio"
+                : "El instalador de escritorio estará disponible próximamente"
+            }
+            className={cn(
+              "shrink-0 rounded px-1.5 py-0.5 sm:px-2",
+              DESKTOP_INSTALLER_URL
+                ? "text-ember hover:bg-accent"
+                : "cursor-not-allowed text-muted-foreground/50",
+            )}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="ml-1 hidden xl:inline">Escritorio</span>
+          </button>
+        )}
         <span className="hidden w-24 lg:inline-block" />
       </div>
 
