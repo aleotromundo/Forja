@@ -1515,7 +1515,10 @@ export function Workbench() {
           <span className="ml-auto hidden font-mono sm:inline">Ctrl+P</span>
         </button>
         {isDesktopBridge() ? (
-          <span className="flex shrink-0 items-center rounded px-1.5 py-0.5 text-ember sm:px-2" title="Agente local integrado en Forja">
+          <span
+            className="flex shrink-0 items-center rounded px-1.5 py-0.5 text-ember sm:px-2"
+            title="Agente local integrado en Forja"
+          >
             <Terminal className="h-3.5 w-3.5" />
             <span className="ml-1 hidden xl:inline">Local: on</span>
           </span>
@@ -1535,6 +1538,17 @@ export function Workbench() {
           >
             <Terminal className="h-3.5 w-3.5" />
             <span className="ml-1 hidden xl:inline">{agentLinked ? "Agente: on" : "Agente"}</span>
+          </button>
+        )}
+        {!isDesktopBridge() && !agentLinked && (
+          <button
+            type="button"
+            onClick={downloadAgentLauncher}
+            title="Descargar lanzador del agente: inicia la conexión automáticamente"
+            className="shrink-0 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground sm:px-2"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="ml-1 hidden xl:inline">Lanzador</span>
           </button>
         )}
         {!isDesktopBridge() && (
