@@ -109,7 +109,8 @@
   html,
   body {
     height: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   body {
     background-color: var(--color-background);
@@ -151,8 +152,8 @@
 /* Landing pública: una entrada más editorial al taller de Forja. */
 .landing-shell {
   position: relative;
-  min-height: 100vh;
-  overflow: auto;
+  min-height: 100dvh;
+  overflow-y: auto;
   color: #f4eee5;
   background: #0d0c0b;
   background-image:
